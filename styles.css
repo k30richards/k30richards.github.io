@@ -497,7 +497,11 @@ img { max-width: 100%; display: block; }
   .about-grid { grid-template-columns: 1fr; gap: var(--space-m); }
   .footer-inner { align-items: flex-start; }
   .footer-links { text-align: left; }
-  .topbar nav a:nth-child(1) { display: none; }  /* keep the bar on one line */
+}
+
+@media (max-width: 26rem) {
+  .topbar { gap: var(--space-xs); }
+  .topbar nav { gap: var(--space-xs); letter-spacing: 0.04em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
