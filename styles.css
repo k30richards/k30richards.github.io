@@ -117,8 +117,6 @@ img { max-width: 100%; display: block; }
 }
 .skip:focus { left: var(--gutter); z-index: 10000; }
 
-.nowrap { white-space: nowrap; }
-
 /* ==========================================================================
    Layout primitives
    ========================================================================== */
