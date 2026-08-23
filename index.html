@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- EDIT: page title + description (shows in browser tabs and search results) -->
+<title>Your Name — Portfolio</title>
+<meta name="description" content="One-line description of who you are and what you build.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <!-- EDIT: the little mark in the top-left — initials, a symbol, whatever -->
+  <a class="mark" href="#top" aria-label="Home">YN</a>
+  <nav aria-label="Sections">
+    <a href="#about">About</a>
+    <a href="#work">Work</a>
+    <a href="#contact">Contact</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- ==========================================================
+       EDIT: HERO — your name and your one-line intro
+       ========================================================== -->
+  <section class="hero" id="top">
+    <p class="eyebrow">Portfolio &middot; 2026</p>
+    <h1 class="hero-name">
+      Your<span class="nowrap">&nbsp;Name</span>
+    </h1>
+    <p class="hero-intro">
+      I build <em>thoughtful</em> software for the web — currently working on
+      distributed systems and the odd side project after midnight.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#work">See the work</a>
+      <a class="btn" href="#contact">Get in touch</a>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       EDIT: ABOUT — a short paragraph or two, plus a few facts
+       ========================================================== -->
+  <section class="about section" id="about">
+    <h2 class="section-title"><span class="section-num">01</span> About</h2>
+    <div class="about-grid">
+      <div class="about-body">
+        <p class="lead">
+          I'm a developer who cares about the parts users never see — the
+          migration that doesn't lose a row, the error message that actually
+          says what went wrong.
+        </p>
+        <p>
+          Replace this with two or three sentences about your background, what
+          you're studying or shipping right now, and the kind of problem you'd
+          drop everything to work on. Keep it human; nobody reads a résumé
+          twice.
+        </p>
+      </div>
+      <!-- EDIT: swap these for your own facts — add or remove <div>s freely -->
+      <dl class="facts">
+        <div><dt>Based in</dt><dd>Somewhere, Earth</dd></div>
+        <div><dt>Focus</dt><dd>Backend &amp; systems</dd></div>
+        <div><dt>Tools</dt><dd>Python, Go, Postgres</dd></div>
+        <div><dt>Status</dt><dd>Open to work</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ==========================================================
+       EDIT: PROJECTS
+       To add a project: copy one entire <article class="card"> … </article>
+       block below and change the number, title, text, tags, and links.
+       The grid reflows on its own — no other changes needed.
+       ========================================================== -->
+  <section class="section" id="work">
+    <h2 class="section-title"><span class="section-num">02</span> Selected work</h2>
+
+    <div class="grid">
+
+      <!-- ---- project card ---- -->
+      <article class="card">
+        <p class="card-num">01</p>
+        <h3 class="card-title">Project One</h3>
+        <p class="card-text">
+          A one-paragraph description of what this thing does and why it was
+          hard. Lead with the problem, not the tech stack.
+        </p>
+        <ul class="tags">
+          <li>Python</li>
+          <li>Postgres</li>
+          <li>Docker</li>
+        </ul>
+        <p class="card-links">
+          <a href="#">Live&nbsp;&rarr;</a>
+          <a href="#">Source&nbsp;&rarr;</a>
+        </p>
+      </article>
+
+      <!-- ---- project card ---- -->
+      <article class="card">
+        <p class="card-num">02</p>
+        <h3 class="card-title">Project Two</h3>
+        <p class="card-text">
+          Another placeholder. Mention a number if you have one — requests per
+          second, users, hours saved. Numbers make people stop scrolling.
+        </p>
+        <ul class="tags">
+          <li>TypeScript</li>
+          <li>SQLite</li>
+        </ul>
+        <p class="card-links">
+          <a href="#">Live&nbsp;&rarr;</a>
+          <a href="#">Source&nbsp;&rarr;</a>
+        </p>
+      </article>
+
+      <!-- ---- project card ---- -->
+      <article class="card">
+        <p class="card-num">03</p>
+        <h3 class="card-title">Project Three</h3>
+        <p class="card-text">
+          The third slot. If a project has no live demo, delete that link and
+          leave the source one — the layout handles either.
+        </p>
+        <ul class="tags">
+          <li>Go</li>
+          <li>Redis</li>
+          <li>CLI</li>
+        </ul>
+        <p class="card-links">
+          <a href="#">Source&nbsp;&rarr;</a>
+        </p>
+      </article>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ==========================================================
+     EDIT: FOOTER LINKS — swap the hrefs for your real profiles
+     ========================================================== -->
+<footer class="footer" id="contact">
+  <div class="footer-inner">
+    <p class="footer-cta">
+      Got something to build?<br>
+      <a class="footer-mail" href="mailto:you@example.com">you@example.com</a>
+    </p>
+    <nav class="footer-links" aria-label="Elsewhere">
+      <a href="https://github.com/">GitHub</a>
+      <a href="https://linkedin.com/">LinkedIn</a>
+      <a href="https://x.com/">X</a>
+      <a href="/resume.pdf">Résumé</a>
+    </nav>
+  </div>
+  <p class="colophon">
+    Built by hand with HTML &amp; CSS. Set in Fraunces &amp; Space&nbsp;Grotesk.
+  </p>
+</footer>
+
+</body>
+</html>
