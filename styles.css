@@ -6,16 +6,16 @@
 
 :root {
   /* --- Colors ------------------------------------------------------------ */
-  --bg:            #14100e;   /* page background (warm near-black)           */
-  --bg-raised:     #1e1917;   /* cards, raised surfaces                      */
-  --bg-sunken:     #0e0b0a;   /* footer, wells                               */
-  --ink:           #f4ece3;   /* primary text (warm cream)                   */
-  --ink-muted:     #a9998c;   /* secondary text                              */
-  --ink-faint:     #6b5c52;   /* numbers, hairlines, quiet details           */
-  --accent:        #d9f24f;   /* THE color - buttons, links, highlights      */
-  --accent-ink:    #14100e;   /* text placed on top of --accent              */
-  --accent-2:      #ff6b4a;   /* secondary pop - section numbers, hovers     */
-  --rule:          #2e2724;   /* border / divider color                      */
+  --bg:            #0a0e17;   /* page background (cool near-black)           */
+  --bg-raised:     #131a28;   /* cards, raised surfaces                      */
+  --bg-sunken:     #060911;   /* footer, wells                               */
+  --ink:           #e9eefb;   /* primary text (cool near-white)              */
+  --ink-muted:     #97a5c0;   /* secondary text                              */
+  --ink-faint:     #57647f;   /* numbers, hairlines, quiet details           */
+  --accent:        #4d9bff;   /* THE color - buttons, links, highlights      */
+  --accent-ink:    #06121f;   /* text placed on top of --accent              */
+  --accent-2:      #6fe3ff;   /* secondary pop - section numbers, hovers     */
+  --rule:          #212c42;   /* border / divider color                      */
 
   /* --- Type -------------------------------------------------------------- */
   --font-display:  "Fraunces", "Iowan Old Style", Georgia, serif;
@@ -156,30 +156,11 @@ img { max-width: 100%; display: block; }
 
 .topbar {
   display: flex;
-  flex-wrap: wrap;           /* nav drops below the mark rather than clipping */
+  flex-wrap: wrap;           /* nav wraps rather than clipping when cramped  */
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-s);
   padding-block: var(--space-s);
-}
-
-.mark {
-  font-family: var(--font-display);
-  font-variation-settings: var(--wonk);
-  font-weight: 800;
-  font-size: var(--step-1);
-  text-decoration: none;
-  line-height: 1;
-  padding: 0.3em 0.45em;
-  border: 2px solid var(--ink);
-  border-radius: var(--radius-sm);
-  transition: background var(--speed) var(--ease), color var(--speed) var(--ease),
-              border-color var(--speed) var(--ease);
-}
-.mark:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
 }
 
 .topbar nav {
@@ -224,14 +205,6 @@ img { max-width: 100%; display: block; }
   filter: blur(30px);
 }
 
-.eyebrow {
-  font-size: var(--step--1);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  margin-bottom: var(--space-s);
-}
-
 .hero-name {
   font-size: var(--step-hero);
   font-weight: 800;
@@ -239,21 +212,8 @@ img { max-width: 100%; display: block; }
   margin-bottom: var(--space-m);
 }
 
-/* The accent slash under the last word of the name. */
-.hero-name span {
-  position: relative;
-  color: var(--accent);
-}
-.hero-name span::after {
-  content: "";
-  position: absolute;
-  left: 0.1em;
-  right: 0;
-  bottom: 0.1em;
-  height: 0.07em;
-  background: var(--accent-2);
-  transform: skewY(-1.6deg);
-}
+/* The last word of the name carries the accent color. */
+.hero-name span { color: var(--accent); }
 
 .hero-intro {
   font-size: var(--step-1);
