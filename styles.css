@@ -156,6 +156,7 @@ img { max-width: 100%; display: block; }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;           /* nav drops below the mark rather than clipping */
   align-items: center;
   justify-content: space-between;
   gap: var(--space-s);
@@ -335,6 +336,68 @@ img { max-width: 100%; display: block; }
 .facts dd { margin: 0; text-align: right; }
 
 /* ==========================================================================
+   Experience  -  each <li class="role"> is a dates column + a details column
+   ========================================================================== */
+
+.roles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-l);
+}
+
+.role {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: var(--space-m);
+  align-items: start;
+  padding-top: var(--space-m);
+  border-top: var(--border);
+}
+
+.role-when { display: grid; gap: var(--space-2xs); }
+
+.role-dates {
+  margin: 0;
+  font-size: var(--step--1);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--accent-2);
+}
+
+.role-place {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.role-what { display: grid; gap: var(--space-xs); }
+
+.role-title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--wonk);
+  font-size: var(--step-2);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.role-org {
+  margin: calc(var(--space-xs) * -1) 0 0;
+  font-size: var(--step-0);
+  color: var(--ink);
+}
+
+.role-text {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  line-height: 1.65;
+}
+
+/* ==========================================================================
    Projects grid  -  cards are self-contained; add as many as you like
    ========================================================================== */
 
@@ -383,6 +446,15 @@ img { max-width: 100%; display: block; }
 .card-title {
   font-size: var(--step-1);
   font-weight: 600;
+}
+
+/* Small dateline under a project title. Delete the <p> to drop it. */
+.card-meta {
+  margin: calc(var(--space-xs) * -1) 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
 .card-text {
@@ -449,15 +521,25 @@ img { max-width: 100%; display: block; }
 }
 
 .footer-cta {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-s);
+}
+
+.footer-line {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
-  font-size: var(--step-3);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
+  font-size: var(--step-2);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  max-width: 26ch;           /* measure for the sentence only, not the email */
   margin: 0;
 }
 
 .footer-mail {
+  font-size: var(--step-1);
+  overflow-wrap: break-word; /* only breaks if it genuinely cannot fit */
   color: var(--accent);
   text-decoration: none;
   border-bottom: 3px solid color-mix(in oklab, var(--accent) 35%, transparent);
@@ -495,11 +577,25 @@ img { max-width: 100%; display: block; }
   .about-grid { grid-template-columns: 1fr; gap: var(--space-m); }
   .footer-inner { align-items: flex-start; }
   .footer-links { text-align: left; }
+
+  /* Dates stack above the role instead of sitting beside it. */
+  .role { grid-template-columns: 1fr; gap: var(--space-s); }
+  .role-when {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: baseline;
+    gap: var(--space-s);
+  }
 }
 
 @media (max-width: 26rem) {
   .topbar { gap: var(--space-xs); }
-  .topbar nav { gap: var(--space-xs); letter-spacing: 0.04em; }
+  .topbar nav {
+    gap: var(--space-xs);
+    letter-spacing: 0.04em;
+    font-size: 0.75rem;
+    flex-wrap: wrap;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
