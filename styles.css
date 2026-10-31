@@ -168,6 +168,10 @@ img { max-width: 100%; display: block; }
   justify-content: flex-end;
   gap: var(--space-s);
   padding-block: var(--space-s);
+  /* Above the hero: its exit animation makes it a stacking context, which
+     would otherwise lift its glow over the nav. */
+  position: relative;
+  z-index: 1;
 }
 
 .topbar nav {
@@ -210,6 +214,7 @@ img { max-width: 100%; display: block; }
               color-mix(in oklab, var(--accent) 22%, transparent),
               transparent 62%);
   filter: blur(30px);
+  pointer-events: none;      /* decoration only; never takes a click */
 }
 
 .hero-name {
@@ -548,8 +553,10 @@ img { max-width: 100%; display: block; }
 
    Everything lives inside @supports so a browser without scroll-linked
    animation shows the page static - an unguarded animation there would
-   play once on load as an ordinary timed animation. It is also skipped
-   entirely for visitors who ask for reduced motion.
+   play once on load as an ordinary timed animation. animation-range is
+   checked too: without it both ranges fall back to the whole view, and the
+   exit would hold every section leaning away. It is also skipped entirely
+   for visitors who ask for reduced motion.
    ========================================================================== */
 
 @keyframes section-entry {
@@ -580,7 +587,7 @@ img { max-width: 100%; display: block; }
   }
 }
 
-@supports (animation-timeline: view()) {
+@supports (animation-timeline: view()) and (animation-range: cover 0% cover 50%) {
   @media (prefers-reduced-motion: no-preference) {
     /* Entry and exit are two animations with their own scroll ranges.
        Between them neither applies, which is what keeps a section flat
