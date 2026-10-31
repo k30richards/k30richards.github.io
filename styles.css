@@ -593,6 +593,27 @@ img { max-width: 100%; display: block; }
       animation-range: cover 0% cover 50vh,
                        cover calc(100% - 33.333vh) cover 100%;
     }
+
+    /* The hero is on screen at load, so it only has an exit. */
+    .hero {
+      animation-name: section-exit;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+      animation-timeline: view();
+      animation-range: cover calc(100% - 33.333vh) cover 100%;
+    }
+
+    /* The footer is too short for its top to ever reach mid-screen, so its
+       entry runs until it is fully on screen - the bottom of the page. It
+       ends 4px early: the page's maximum scroll is often fractional, and a
+       range ending exactly there leaves the footer a hair short of flat. */
+    .footer {
+      animation-name: section-entry;
+      animation-timing-function: linear;
+      animation-fill-mode: backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry calc(100% - 4px);
+    }
   }
 }
 
