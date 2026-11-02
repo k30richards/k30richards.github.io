@@ -151,35 +151,83 @@
             <h3 class="role-title">AI Intern</h3>
             <p class="role-org">Locust Walk</p>
             <div class="role-text">
-              <p><strong>
-                I built an automated pipeline that finds the executives and
-                board members at the companies the firm tracks and prepares
-                them to load into its CRM, replacing contact research that was
-                done by hand.
+              <p class="overview"><strong>
+                As an AI intern at Locust Walk, a biopharma advisory firm in
+                Boston, I built an automated pipeline that finds executives
+                and board members at target companies and prepares them to
+                load into the firm&rsquo;s CRM.
               </strong></p>
               <p>
-                The firm&rsquo;s CRM data was incomplete and going stale, and
-                keeping it current meant researching one contact at a time,
-                which did not scale. For each company, the pipeline finds its
-                leadership and board pages, pulls the page text (with Jina, or
-                Playwright for pages that need a real browser), has the Claude
-                API read it and extract every name and title, and keeps only
-                the roles the business development team tracks by checking
-                each title against a whitelist I wrote. Apollo then adds
-                emails and LinkedIn profiles. The CRM could not take that
-                output as it was, so I wrote ETL scripts that clean the
-                results, remove duplicates, map each location to the
-                CRM&rsquo;s own region categories and reshape everything into
-                its import format, so the contacts merge in without creating
-                duplicate or conflicting records. Run across 211 firms, it
-                found 2,042 contacts, an estimated 72% of them new to the CRM.
-                The team uses it today, and the firm projects it will save
-                hundreds of working hours a year. I also compared CRM and AI
-                tools for the firm, including a cost model of its tool stack,
-                and tested them on its real data. For
-                example, I found that Clay fails silently on records missing a
-                company domain and LinkedIn address, which helped the firm
-                choose tools that would work at a low cost.
+                <span class="para-label">The problem</span>
+                The CRM&rsquo;s contact data was incomplete and going stale,
+                and keeping it current meant researching one person at a time
+                by hand. The firm&rsquo;s outreach and automation depended on
+                that data being right, and the manual process did not scale.
+              </p>
+              <p>
+                <span class="para-label">The approach</span>
+                I compared CRM and AI tools against the firm&rsquo;s real
+                records and built a cost model of its tool stack. Clay failed
+                silently on records missing a company domain and LinkedIn URL,
+                which showed the data had to be collected and cleaned first,
+                so I built the collection step in Python and used Apollo for
+                enrichment.
+              </p>
+              <p>
+                <span class="para-label">What I built</span>
+                For each company, the pipeline finds its leadership and board
+                pages, pulls the text with Jina or Playwright, and has the
+                Claude API extract names and titles. A role whitelist keeps
+                only the positions the business development team tracks, and
+                Apollo adds emails and LinkedIn profiles. ETL scripts then
+                clean the results, remove duplicates, map locations to the
+                CRM&rsquo;s regions and reshape everything to its import
+                format, so contacts merge in without creating duplicates.
+              </p>
+              <figure class="viz">
+                <svg viewBox="0 0 320 348" role="img" aria-label="Flow diagram: company list, find leadership and board pages, pull the page text, extract names and titles with the Claude API, keep the tracked roles, add emails and LinkedIn profiles with Apollo, ETL scripts, then the CRM.">
+                                  <rect x="20" y="2" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="20.0" text-anchor="middle"><tspan class="v-t">Company list</tspan><tspan class="v-s"> &middot; the firms to research</tspan></text>
+                                  <line x1="160" y1="30" x2="160.0" y2="38.0" class="v-arrow"/>
+                                  <path d="M160.0 44.0 L156.5 38.0 L163.5 38.0 Z" class="v-head"/>
+                                  <rect x="20" y="44" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="62.0" text-anchor="middle"><tspan class="v-t">Find leadership and board pages</tspan></text>
+                                  <line x1="160" y1="72" x2="160.0" y2="80.0" class="v-arrow"/>
+                                  <path d="M160.0 86.0 L156.5 80.0 L163.5 80.0 Z" class="v-head"/>
+                                  <rect x="20" y="86" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="104.0" text-anchor="middle"><tspan class="v-t">Pull the page text</tspan><tspan class="v-s"> &middot; Jina, Playwright</tspan></text>
+                                  <line x1="160" y1="114" x2="160.0" y2="122.0" class="v-arrow"/>
+                                  <path d="M160.0 128.0 L156.5 122.0 L163.5 122.0 Z" class="v-head"/>
+                                  <rect x="20" y="128" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="146.0" text-anchor="middle"><tspan class="v-t">Extract names and titles</tspan><tspan class="v-s"> &middot; Claude API</tspan></text>
+                                  <line x1="160" y1="156" x2="160.0" y2="164.0" class="v-arrow"/>
+                                  <path d="M160.0 170.0 L156.5 164.0 L163.5 164.0 Z" class="v-head"/>
+                                  <rect x="20" y="170" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="188.0" text-anchor="middle"><tspan class="v-t">Keep tracked roles</tspan><tspan class="v-s"> &middot; title whitelist</tspan></text>
+                                  <line x1="160" y1="198" x2="160.0" y2="206.0" class="v-arrow"/>
+                                  <path d="M160.0 212.0 L156.5 206.0 L163.5 206.0 Z" class="v-head"/>
+                                  <rect x="20" y="212" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="230.0" text-anchor="middle"><tspan class="v-t">Add emails and LinkedIn</tspan><tspan class="v-s"> &middot; Apollo</tspan></text>
+                                  <line x1="160" y1="240" x2="160.0" y2="248.0" class="v-arrow"/>
+                                  <path d="M160.0 254.0 L156.5 248.0 L163.5 248.0 Z" class="v-head"/>
+                                  <rect x="20" y="254" width="280" height="50" rx="6" class="v-box"/>
+                                  <text x="160.0" y="267.5" class="v-t" text-anchor="middle">ETL scripts</text>
+                                  <text x="160.0" y="282.5" class="v-s" text-anchor="middle">clean &middot; remove duplicates &middot; map regions</text>
+                                  <text x="160.0" y="297.5" class="v-s" text-anchor="middle">reshape to the CRM&rsquo;s import format</text>
+                                  <line x1="160" y1="304" x2="160.0" y2="312.0" class="v-arrow"/>
+                                  <path d="M160.0 318.0 L156.5 312.0 L163.5 312.0 Z" class="v-head"/>
+                                  <rect x="20" y="318" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="336.0" text-anchor="middle"><tspan class="v-t">CRM</tspan><tspan class="v-s"> &middot; merges in, no duplicates</tspan></text>
+                                </svg>
+                <figcaption>How the pipeline turns a company list into CRM-ready contacts.</figcaption>
+              </figure>
+              <p>
+                <span class="para-label">The result</span>
+                Across 211 firms it found 2,042 contacts, an estimated 72% of
+                them new to the CRM, and roughly 70% of those new contacts
+                hold board seats, the group the CRM covered worst. The team
+                uses it today, and the firm projects it will save hundreds of
+                working hours a year.
               </p>
             </div>
             <ul class="tags">
@@ -204,31 +252,59 @@
             <h3 class="role-title">Research Associate</h3>
             <p class="role-org">Worcester Polytechnic Institute</p>
             <div class="role-text">
-              <p><strong>
-                I tested six prompting strategies for getting ChatGPT to
+              <p class="overview"><strong>
+                As a research associate in WPI&rsquo;s NSF REU program, I
+                tested six prompting strategies for getting ChatGPT to
                 identify the stage of a pressure wound from a photo, to find
-                out which one is the most accurate and consistent.
+                out which is the most accurate and consistent.
               </strong></p>
               <p>
-                Pressure injuries are staged by looking at them, which is
-                subjective, so the question was whether an AI model could do
-                it reliably and which way of asking works best. I worked from
-                the PIID dataset of 1,091 wound images across four severity
-                stages and took an 80-image sample, 20 from each stage. I
-                designed six prompts: Zero-Shot (no examples), Few-Shot (a few
-                examples), Chain of Thought (reason step by step), Tree of
-                Thought (weigh several lines of reasoning) and two structured
-                templates, CO-STAR and TIDD-EC. I ran each one in ChatGPT and
-                wrote a Python script to score accuracy, precision, recall and
-                F1 and to build confusion matrices. To test consistency, I
-                picked two images from each stage, one that clearly matched
-                its stage and one an observer could easily mislabel, and ran
-                every prompt on each image ten times. Chain of Thought did
-                best on all four measures, at 72.5% accuracy, and Few-Shot was
-                the least reliable. Small changes in wording moved the
-                answers, and adding medical context made them steadier, which
-                is worth knowing before anyone relies on AI for medical
-                images. I presented the results at WPI&rsquo;s NSF REU
+                <span class="para-label">The problem</span>
+                Pressure injuries are staged by visual inspection, which is
+                subjective, and wounds affect over 8 million people. The
+                question was whether a general-purpose model like ChatGPT
+                could stage them reliably, and how much the way it is prompted
+                changes the answer.
+              </p>
+              <p>
+                <span class="para-label">The approach</span>
+                I worked from the PIID dataset of 1,091 images across four
+                severity stages and drew an 80-image sample, 20 per stage. I
+                designed six prompts: Zero-Shot, Few-Shot, Chain of Thought,
+                Tree of Thought, CO-STAR and TIDD-EC, and ran each in ChatGPT.
+              </p>
+              <p>
+                <span class="para-label">What I built</span>
+                I wrote a Python script that scored every strategy on
+                accuracy, precision, recall and F1 and produced confusion
+                matrices. To test consistency, I chose two images per stage,
+                one that clearly matched its stage and one an observer could
+                easily mislabel, and ran every prompt on each image ten times.
+              </p>
+              <figure class="viz">
+                <table class="heat">
+                                  <caption>Runs out of 10 that named the correct stage</caption>
+                                  <thead>
+                                    <tr><th></th><th scope="colgroup" colspan="2">Stage 1</th><th scope="colgroup" colspan="2">Stage 2</th><th scope="colgroup" colspan="2">Stage 3</th><th scope="colgroup" colspan="2">Stage 4</th></tr>
+                                    <tr><th></th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th></tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr><th scope="row">Chain of Thought</th><td class="hi" style="--p:85%">10</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                    <tr><th scope="row">CO-STAR</th><td class="hi" style="--p:68%">8</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                    <tr><th scope="row">Zero-Shot</th><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:60%">7</td><td class="hi" style="--p:60%">7</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:42%">5</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:76%">9</td></tr>
+                                    <tr><th scope="row">Tree of Thought</th><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:60%">7</td><td class="hi" style="--p:68%">8</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:60%">7</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                    <tr><th scope="row">TIDD-EC</th><td class="" style="--p:34%">4</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:51%">6</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                    <tr><th scope="row">Few-Shot</th><td class="hi" style="--p:85%">10</td><td class="" style="--p:42%">5</td><td class="" style="--p:17%">2</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                  </tbody>
+                                </table>
+                <figcaption>Each row is one prompting strategy and each square is one image run ten times; darker means more runs named the right stage. Rows run from most to least accurate on the 80-image sample.</figcaption>
+              </figure>
+              <p>
+                <span class="para-label">The result</span>
+                Chain of Thought was best on all four measures at 72.5%
+                accuracy, and Few-Shot was the weakest. Small changes in
+                wording shifted the answers, and adding medical context made
+                them steadier. I presented the results at WPI&rsquo;s NSF REU
                 research symposium.
               </p>
             </div>
@@ -267,36 +343,89 @@
         <h3 class="card-title">Unified Compensation Modeling Engine</h3>
         <p class="card-meta">Graduate Qualifying Project &middot; <span class="card-dates">Jan 2026 &ndash; May 2026</span></p>
         <div class="card-text">
-          <p><strong>
-            Our four-person team replaced a medical device company&rsquo;s
-            spreadsheet-based sales compensation modeling with a rule-driven
-            system in Snowflake, and I built the Tableau dashboards that turn
-            its results into comparisons stakeholders can act on.
+          <p class="overview"><strong>
+            For my graduate capstone at WPI, sponsored by a medical device
+            company, our four-person team replaced spreadsheet-based sales
+            compensation modeling with a rule-driven system in Snowflake, and
+            I built the Tableau dashboards that present its results.
           </strong></p>
           <p>
+            <span class="para-label">The problem</span>
             The sponsor&rsquo;s compensation team designs sales incentive
-            plans and has to test many versions of each plan against real
-            sales data before one is chosen. They did that in spreadsheets
-            full of repeated formulas and inconsistent data, which was slow
-            and hard to trust. We replaced it with a system in Snowflake,
-            designing and building the data model and calculation engine
-            together as a team. Sales results sit in one central table (a star
-            schema) tied to tables for territories, roles, products and time,
-            so every comparison starts from the same numbers. Each
-            plan&rsquo;s rules are stored as data in three layers (the
-            plan&rsquo;s details, its payout rates and the reps it applies
-            to), separate from the code, so a plan can change without
-            rewriting anything. A calculation engine, built from stored
-            procedures written with Snowflake scripting in SQL, works out who
-            qualifies and what each rep is paid (base pay, accelerators and
-            bonuses), with checks along the way. My teammates built the
-            Streamlit app where analysts enter plan settings without writing
-            SQL. I designed and built the Tableau dashboards on top of the
-            results: one compares the current plan with proposed ones, one
-            tracks representative performance against plan over time, and one
-            shows when payouts land across the year. The system covers four of
-            the six franchises and the three standard payout types, and the
-            team expects it to save over 300 hours of work a year.
+            plans and has to test many versions of each against real sales
+            data before rollout. They did this in spreadsheets with repeated
+            formulas and inconsistent data, which was slow, error-prone and
+            hard to scale.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            We built the system in Snowflake. Sales results sit in a star
+            schema, and each plan&rsquo;s rules live in a separate rules
+            schema with header, detail and assignment layers. A calculation
+            engine of stored procedures in Snowflake scripting matches rules
+            to sales, computes Tier 1, accelerator and bonus payouts, and
+            unifies them into one output table, with validation checks along
+            the way. My teammates built the Streamlit app where analysts enter
+            plan parameters without writing SQL.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I designed and built the Tableau dashboards that read the
+            engine&rsquo;s output: a Payout Summary comparing current and
+            proposed plans, a Most Important Metrics view of representative
+            performance against plan over time, and a Monthly Cash Flow
+            Summary showing when payouts land. The data model and calculation
+            engine were a joint effort across all four of us.
+          </p>
+          <figure class="viz">
+            <svg viewBox="0 0 320 336" role="img" aria-label="Data flow diagram: sales data feeds a star schema and plan inputs from a Streamlit app feed a rules schema; both go into the calculation engine, which checks rule eligibility, computes payouts and unifies them into one table; the Tableau dashboards read that table.">
+                          <rect x="5" y="2" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="80.0" y="18.0" class="v-t" text-anchor="middle">Sales data</text>
+                          <text x="80.0" y="33.0" class="v-s" text-anchor="middle">by rep and product</text>
+                          <rect x="165" y="2" width="150" height="40" rx="6" class="v-box v-dim"/>
+                          <text x="240.0" y="18.0" class="v-t" text-anchor="middle">Streamlit app</text>
+                          <text x="240.0" y="33.0" class="v-s" text-anchor="middle">inputs, by teammates</text>
+                          <line x1="80" y1="42" x2="80.0" y2="52.0" class="v-arrow"/>
+                          <path d="M80.0 58.0 L76.5 52.0 L83.5 52.0 Z" class="v-head"/>
+                          <line x1="240" y1="42" x2="240.0" y2="52.0" class="v-arrow"/>
+                          <path d="M240.0 58.0 L236.5 52.0 L243.5 52.0 Z" class="v-head"/>
+                          <rect x="5" y="58" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="80.0" y="74.0" class="v-t" text-anchor="middle">Star schema</text>
+                          <text x="80.0" y="89.0" class="v-s" text-anchor="middle">facts and dimensions</text>
+                          <rect x="165" y="58" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="240.0" y="74.0" class="v-t" text-anchor="middle">Rules schema</text>
+                          <text x="240.0" y="89.0" class="v-s" text-anchor="middle">rules stored as data</text>
+                          <line x1="80" y1="98" x2="124.6" y2="119.4" class="v-arrow"/>
+                          <path d="M130.0 122.0 L123.1 122.6 L126.1 116.2 Z" class="v-head"/>
+                          <line x1="240" y1="98" x2="195.4" y2="119.4" class="v-arrow"/>
+                          <path d="M190.0 122.0 L193.9 116.2 L196.9 122.6 Z" class="v-head"/>
+                          <rect x="5" y="122" width="310" height="140" rx="8" class="v-box v-group"/>
+                          <text x="16.0" y="139.0" class="v-s" text-anchor="start">Calculation engine (stored procedures)</text>
+                          <rect x="16" y="148" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="165.5" class="v-t" text-anchor="middle">Rule eligibility</text>
+                          <line x1="160" y1="174" x2="160.0" y2="176.0" class="v-arrow"/>
+                          <path d="M160.0 182.0 L156.5 176.0 L163.5 176.0 Z" class="v-head"/>
+                          <rect x="16" y="182" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="199.5" class="v-t" text-anchor="middle">Payouts: Tier 1, Accelerator, Bonus</text>
+                          <line x1="160" y1="208" x2="160.0" y2="210.0" class="v-arrow"/>
+                          <path d="M160.0 216.0 L156.5 210.0 L163.5 210.0 Z" class="v-head"/>
+                          <rect x="16" y="216" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="233.5" class="v-t" text-anchor="middle">Unified payout table</text>
+                          <line x1="160" y1="262" x2="160.0" y2="272.0" class="v-arrow"/>
+                          <path d="M160.0 278.0 L156.5 272.0 L163.5 272.0 Z" class="v-head"/>
+                          <rect x="5" y="278" width="310" height="56" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="294.5" class="v-t" text-anchor="middle">Tableau dashboards</text>
+                          <text x="160.0" y="309.5" class="v-s" text-anchor="middle">Payout Summary &middot; Most Important Metrics</text>
+                          <text x="160.0" y="324.5" class="v-s" text-anchor="middle">Monthly Cash Flow Summary</text>
+                        </svg>
+            <figcaption>How data flows through the system. Highlighted: the part I built. Dashed: built by teammates.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            The system covers four of the six franchises and the three
+            standard payout types, and the team expects to save over 300 hours
+            of work a year. Analysts can test a broader range of plan
+            scenarios from consistent numbers before choosing one.
           </p>
         </div>
         <ul class="tags">
@@ -319,38 +448,75 @@
         <h3 class="card-title">Edge-Based Smart Lock System</h3>
         <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
         <div class="card-text">
-          <p><strong>
-            Our team built a touch-free door lock that listens for a wake word
-            and then reads a four-digit code signed by hand to a camera, and
-            my part was shrinking the models so they run fast on a small
-            Raspberry Pi.
+          <p class="overview"><strong>
+            In a WPI embedded machine learning course, our team built a
+            touch-free door lock that listens for a wake word and reads a
+            hand-signed code, and I compressed its models so they run fast on
+            a Raspberry Pi.
           </strong></p>
           <p>
-            Keys and keypads do not work for people with limited vision or
-            mobility, so the team designed a lock that needs no touch. A
-            Raspberry Pi 5 with a microphone, camera and small display listens
-            for a wake word (&ldquo;House&rdquo;), then turns on the camera
-            and reads the four-digit code signed with the hand, showing Locked
-            or Unlocked on the display. Two neural networks do the
-            recognizing: one for the wake word, trained on Google&rsquo;s
-            Speech Commands audio, and one for the hand signs, trained on a
-            27-class sign-language image set (we used digits 0 to 9). The rest
-            of the team trained those models and wrote the Pi software, and
-            also tested a binarized version of the wake word network (one bit
-            per weight) and took it through chip-design tools to estimate how
-            fast dedicated hardware could run it. My part was compression,
-            because the models had to run quickly on very limited hardware.
-            Using TensorFlow&rsquo;s optimization tools and Lite-RT, I tried
-            pruning (removing weights that matter little), several kinds of
-            quantization (storing weights as small integers instead of 32-bit
-            decimals), weight clustering (letting similar weights share a
-            value) and quantization-aware training, and compared every version
-            on size and accuracy. The best all-round result was 8-bit
-            quantization: the wake word model dropped from 79 KB to 25 KB (68%
-            smaller), accuracy rose from 96.1% to 98.3%, and each prediction
-            on the Pi dropped from 108 to 36 microseconds. Pruning got it down
-            to 10 KB at 94.5% accuracy, which gave the team a clear
-            size-versus-accuracy menu to choose from.
+            <span class="para-label">The problem</span>
+            Keys and keypads do not work for everyone, including people with
+            limited vision or mobility, and a lock has to run on a small,
+            inexpensive computer with tight memory and speed limits.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            A Raspberry Pi 5 with a microphone, camera and LCD listens for the
+            wake word &ldquo;House&rdquo;, turns on the camera and reads a
+            four-digit code signed by hand. Two CNNs do the recognizing: a
+            wake word model trained on Google Speech Commands with MFCC
+            features, and a sign-language model trained on a 27-class image
+            set, using digits 0 to 9. Teammates trained the models and wrote
+            the Pi software, and explored a binarized network and its hardware
+            implementation with hls4ml, Yosys and OpenSTA.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I compressed the wake word model with TensorFlow Model
+            Optimization and Lite-RT. I tested unstructured and structured
+            pruning, dynamic range, float16, int16/int8 and full-integer
+            quantization, weight clustering and quantization-aware training,
+            and compared every version on size and accuracy.
+          </p>
+          <figure class="viz">
+                        <table class="bars">
+                          <caption>Model size (KB)</caption>
+                          <tbody>
+                            <tr><th scope="row">Original</th><td><div class="bar-cell"><span class="bar base" style="--w:100.0%"></span><span class="bar-val">79.1</span></div></td></tr>
+                            <tr><th scope="row">Float16</th><td><div class="bar-cell"><span class="bar" style="--w:55.9%"></span><span class="bar-val">44.2</span></div></td></tr>
+                            <tr><th scope="row">Dynamic range</th><td><div class="bar-cell"><span class="bar best" style="--w:31.9%"></span><span class="bar-val">25.2</span></div></td></tr>
+                            <tr><th scope="row">Int16 / int8</th><td><div class="bar-cell"><span class="bar" style="--w:35.4%"></span><span class="bar-val">28.0</span></div></td></tr>
+                            <tr><th scope="row">Full integer</th><td><div class="bar-cell"><span class="bar" style="--w:33.6%"></span><span class="bar-val">26.6</span></div></td></tr>
+                            <tr><th scope="row">Quantization-aware</th><td><div class="bar-cell"><span class="bar" style="--w:34.3%"></span><span class="bar-val">27.1</span></div></td></tr>
+                            <tr><th scope="row">Pruned</th><td><div class="bar-cell"><span class="bar" style="--w:20.5%"></span><span class="bar-val">16.2</span></div></td></tr>
+                            <tr><th scope="row">Pruned, structured</th><td><div class="bar-cell"><span class="bar" style="--w:13.0%"></span><span class="bar-val">10.3</span></div></td></tr>
+                            <tr><th scope="row">Weight clustering</th><td><div class="bar-cell"><span class="bar" style="--w:19.0%"></span><span class="bar-val">15.0</span></div></td></tr>
+                          </tbody>
+                        </table>
+                        <table class="bars">
+                          <caption>Accuracy (%)</caption>
+                          <tbody>
+                            <tr><th scope="row">Original</th><td><div class="bar-cell"><span class="bar base" style="--w:96.1%"></span><span class="bar-val">96.1</span></div></td></tr>
+                            <tr><th scope="row">Float16</th><td><div class="bar-cell"><span class="bar" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Dynamic range</th><td><div class="bar-cell"><span class="bar best" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Int16 / int8</th><td><div class="bar-cell"><span class="bar" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Full integer</th><td><div class="bar-cell"><span class="bar" style="--w:50.0%"></span><span class="bar-val">50.0</span></div></td></tr>
+                            <tr><th scope="row">Quantization-aware</th><td><div class="bar-cell"><span class="bar" style="--w:97.1%"></span><span class="bar-val">97.1</span></div></td></tr>
+                            <tr><th scope="row">Pruned</th><td><div class="bar-cell"><span class="bar" style="--w:97.3%"></span><span class="bar-val">97.3</span></div></td></tr>
+                            <tr><th scope="row">Pruned, structured</th><td><div class="bar-cell"><span class="bar" style="--w:94.5%"></span><span class="bar-val">94.5</span></div></td></tr>
+                            <tr><th scope="row">Weight clustering</th><td><div class="bar-cell"><span class="bar" style="--w:97.7%"></span><span class="bar-val">97.7</span></div></td></tr>
+                          </tbody>
+                        </table>
+            <figcaption>Wake word model size and accuracy for each compression method I tested. Highlighted: dynamic range quantization, the best all-round result.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            Dynamic range quantization cut the model from 79 KB to 25 KB (68%
+            smaller) and each prediction on the Pi from 108 to 36
+            microseconds, while accuracy rose from 96.1% to 98.3%. Pruning
+            reached 10 KB at 94.5%. Full-integer quantization fell to 50%
+            accuracy, and keeping int16 activations restored 98.3% at 28 KB.
           </p>
         </div>
         <ul class="tags">
@@ -376,35 +542,99 @@
         <h3 class="card-title">Multimodal Stock Movement Prediction</h3>
         <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
         <div class="card-text">
-          <p><strong>
-            Our four-person team tested whether financial news improves stock
-            direction predictions beyond what price history alone gives, and I
-            built the price data work, the price-only models and the model
-            that combines news with prices.
+          <p class="overview"><strong>
+            In a WPI deep learning course, our four-person team tested whether
+            financial news improves stock-direction predictions beyond price
+            history alone, and I built the price data work, the price-only
+            models and the model that fuses news with prices.
           </strong></p>
           <p>
-            Most stock-prediction models only look at past prices, so the
-            question was whether the news adds a real signal about whether a
-            stock will go up or down. The team used S&amp;P 500 prices from
-            Yahoo Finance and news headlines scored by FinBERT, a language
-            model trained on financial text, and my teammates built and tuned
-            the FinBERT sentiment models. I started with the data: I picked 15
-            stocks that behave differently (five steady, five volatile and
-            five flat, sorted by their volatility and total return) and
-            engineered features such as moving averages, RSI and MACD, using a
-            random forest to check which ones mattered. I then built the
-            price-only models that set the bar: a naive baseline that predicts
-            tomorrow will match today, a bidirectional LSTM, and a multi-task
-            transformer that reads 30 days of features and predicts the next
-            day, week and month. Finally I built the dual-stream transformer,
-            which processes price and sentiment separately and lets them look
-            at each other through cross-attention, with an autoencoder
-            compressing the sentiment inputs and focal loss to handle the
-            imbalance between up and down days. It scored 92.7% accuracy for
-            next-day direction and 97.81% for next-week, well above the
-            baselines, but the sentiment history covered only about 25 days,
-            so those numbers need a longer test before anyone should trust
-            them.
+            <span class="para-label">The problem</span>
+            Most stock models look only at past prices. The question was
+            whether news sentiment adds real predictive signal about whether a
+            stock moves up or down, and whether combining the two beats either
+            one alone.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            The team scored news headlines with FinBERT, paired them with
+            S&amp;P 500 price history from Yahoo Finance, and compared six
+            models, from a naive baseline and a BiLSTM to FinBERT classifiers
+            and transformers, before fusing price and sentiment in a
+            dual-stream transformer. My teammates built and tuned the FinBERT
+            sentiment models.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I started with the data: 15 S&amp;P 500 stocks chosen to cover
+            steady, volatile and flat behavior, with engineered features such
+            as moving averages, RSI and MACD, checked with a random forest. I
+            built the price-only models that set the baseline, a naive
+            forecast, a BiLSTM and a multi-task transformer that predicts the
+            next day, week and month from 30 days of features, and then the
+            dual-stream transformer, with an autoencoder compressing the
+            sentiment embeddings and focal loss for class imbalance.
+          </p>
+          <figure class="viz">
+            <svg viewBox="0 0 320 346" role="img" aria-label="Diagram of the dual-stream model: price history becomes engineered features, time embeddings and a price encoder; news headlines become FinBERT sentiment embeddings, an autoencoder and a sentiment encoder; cross-attention joins the two streams to predict up or down.">
+                          <rect x="5" y="2" width="150" height="42" rx="6" class="v-box"/>
+                          <text x="80.0" y="19.0" class="v-t" text-anchor="middle">Price history</text>
+                          <text x="80.0" y="34.0" class="v-s" text-anchor="middle">S&amp;P 500, 30 days</text>
+                          <rect x="165" y="2" width="150" height="42" rx="6" class="v-box"/>
+                          <text x="240.0" y="19.0" class="v-t" text-anchor="middle">News headlines</text>
+                          <text x="240.0" y="34.0" class="v-s" text-anchor="middle">per stock, per day</text>
+                          <line x1="80" y1="44" x2="80.0" y2="54.0" class="v-arrow"/>
+                          <path d="M80.0 60.0 L76.5 54.0 L83.5 54.0 Z" class="v-head"/>
+                          <line x1="240" y1="44" x2="240.0" y2="54.0" class="v-arrow"/>
+                          <path d="M240.0 60.0 L236.5 54.0 L243.5 54.0 Z" class="v-head"/>
+                          <rect x="5" y="60" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="77.0" class="v-t" text-anchor="middle">Price features</text>
+                          <text x="80.0" y="92.0" class="v-s" text-anchor="middle">technical indicators</text>
+                          <rect x="165" y="60" width="150" height="42" rx="6" class="v-box v-dim"/>
+                          <text x="240.0" y="77.0" class="v-t" text-anchor="middle">FinBERT</text>
+                          <text x="240.0" y="92.0" class="v-s" text-anchor="middle">sentiment embeddings</text>
+                          <line x1="80" y1="102" x2="80.0" y2="112.0" class="v-arrow"/>
+                          <path d="M80.0 118.0 L76.5 112.0 L83.5 112.0 Z" class="v-head"/>
+                          <line x1="240" y1="102" x2="240.0" y2="112.0" class="v-arrow"/>
+                          <path d="M240.0 118.0 L236.5 112.0 L243.5 112.0 Z" class="v-head"/>
+                          <rect x="5" y="118" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="135.0" class="v-t" text-anchor="middle">Time embeddings</text>
+                          <text x="80.0" y="150.0" class="v-s" text-anchor="middle">sequence position</text>
+                          <rect x="165" y="118" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="240.0" y="135.0" class="v-t" text-anchor="middle">Autoencoder</text>
+                          <text x="240.0" y="150.0" class="v-s" text-anchor="middle">compresses embeddings</text>
+                          <line x1="80" y1="160" x2="80.0" y2="170.0" class="v-arrow"/>
+                          <path d="M80.0 176.0 L76.5 170.0 L83.5 170.0 Z" class="v-head"/>
+                          <line x1="240" y1="160" x2="240.0" y2="170.0" class="v-arrow"/>
+                          <path d="M240.0 176.0 L236.5 170.0 L243.5 170.0 Z" class="v-head"/>
+                          <rect x="5" y="176" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="193.0" class="v-t" text-anchor="middle">Price encoder</text>
+                          <text x="80.0" y="208.0" class="v-s" text-anchor="middle">transformer</text>
+                          <rect x="165" y="176" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="240.0" y="193.0" class="v-t" text-anchor="middle">Sentiment encoder</text>
+                          <text x="240.0" y="208.0" class="v-s" text-anchor="middle">transformer</text>
+                          <line x1="80" y1="218" x2="80.0" y2="234.0" class="v-arrow"/>
+                          <path d="M80.0 240.0 L76.5 234.0 L83.5 234.0 Z" class="v-head"/>
+                          <line x1="240" y1="218" x2="240.0" y2="234.0" class="v-arrow"/>
+                          <path d="M240.0 240.0 L236.5 234.0 L243.5 234.0 Z" class="v-head"/>
+                          <rect x="5" y="240" width="310" height="46" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="259.0" class="v-t" text-anchor="middle">Cross-attention</text>
+                          <text x="160.0" y="274.0" class="v-s" text-anchor="middle">each stream attends to the other</text>
+                          <line x1="160" y1="286" x2="160.0" y2="296.0" class="v-arrow"/>
+                          <path d="M160.0 302.0 L156.5 296.0 L163.5 296.0 Z" class="v-head"/>
+                          <rect x="5" y="302" width="310" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="319.0" class="v-t" text-anchor="middle">Up or down</text>
+                          <text x="160.0" y="334.0" class="v-s" text-anchor="middle">next day and next week</text>
+                        </svg>
+            <figcaption>How the dual-stream model handles price and news. Highlighted: the parts I built. Dashed: built by teammates.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            The dual-stream model reached 92.7% accuracy for next-day
+            direction and 97.81% for next-week, against 51.7% for the naive
+            baseline on next-day. Sentiment data covered only about 25 days,
+            so those numbers need a longer test window before they can be
+            trusted.
           </p>
         </div>
         <ul class="tags">

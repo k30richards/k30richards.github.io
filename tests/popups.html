@@ -125,22 +125,71 @@
       'elementFromPoint(' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is ' + describeEl(hit) + ', not the link';
   }
 
-  // A role or project is a bold one-sentence overview, then one paragraph.
-  function structureProblem(ctx, panel) {
+  // A role or project is a bold one-sentence overview that says where the work
+  // happened, then labelled paragraphs with one figure just before the result.
+  const EXPERIENCE_LABELS = ['The problem', 'The approach', 'What I built', 'The result'];
+  const PROJECT_LABELS = ['The problem', 'The solution', 'My part', 'The result'];
+  const wordCount = n => norm(n.textContent).split(' ').length;
+
+  function structureProblem(ctx, panel, labels) {
     const box = panel.querySelector('.role-text, .card-text');
     if (!box) return 'no description';
-    const ps = Array.from(box.children);
-    if (ps.length !== 2 || ps.some(p => p.tagName !== 'P')) return 'description is ' + ps.length + ' block(s), not two paragraphs';
-    const strong = ps[0].querySelector('strong');
-    if (!strong || norm(strong.textContent) !== norm(ps[0].textContent)) return 'the first paragraph is not entirely bold';
-    const sentences = (norm(ps[0].textContent).match(/[.!?](\s|$)/g) || []).length;
+    const kids = Array.from(box.children);
+    const overview = kids[0];
+    if (!overview || overview.tagName !== 'P') return 'the description does not start with a paragraph';
+    const strong = overview.querySelector('strong');
+    if (!strong || norm(strong.textContent) !== norm(overview.textContent)) return 'the first paragraph is not entirely bold';
+    const sentences = (norm(overview.textContent).match(/[.!?](\s|$)/g) || []).length;
     if (sentences !== 1) return 'the overview is ' + sentences + ' sentences long';
-    if (ps[1].querySelector('strong, b')) return 'the second paragraph has bold text in it';
-    const len = norm(ps[1].textContent).length;
-    if (len < 400) return 'the second paragraph is only ' + len + ' characters';
+    if (wordCount(overview) > 48) return 'the overview is ' + wordCount(overview) + ' words';
+    const rest = kids.slice(1);
+    const paras = rest.filter(k => k.tagName === 'P');
+    const figs = rest.filter(k => k.tagName === 'FIGURE');
+    if (rest.length !== paras.length + figs.length) return 'the description holds something other than paragraphs and one figure';
+    const got = paras.map(p => norm((p.querySelector('.para-label') || { textContent: '' }).textContent));
+    if (JSON.stringify(got) !== JSON.stringify(labels)) return 'paragraph labels are ' + JSON.stringify(got);
+    if (figs.length !== 1) return 'found ' + figs.length + ' figures, expected 1';
+    if (rest[rest.length - 2] !== figs[0]) return 'the figure is not just before the result';
     const weight = n => parseInt(ctx.win.getComputedStyle(n).fontWeight, 10);
     if (weight(strong) < 600) return 'the overview renders at weight ' + weight(strong);
-    if (weight(ps[1]) > 500) return 'the second paragraph renders bold';
+    for (const p of paras) {
+      const label = p.querySelector('.para-label');
+      const name = norm(label.textContent);
+      if (ctx.win.getComputedStyle(label).display !== 'block') return '"' + name + '" label is not on its own line';
+      if (ctx.win.getComputedStyle(label).textTransform !== 'uppercase') return '"' + name + '" label is not set in capitals';
+      if (weight(p) > 500) return '"' + name + '" paragraph renders bold';
+      if (p.querySelector('strong, b')) return '"' + name + '" paragraph has bold text in it';
+      const n = wordCount(p);
+      if (n < 20 || n > 95) return '"' + name + '" paragraph is ' + n + ' words';
+    }
+  }
+
+  // A figure: captioned, inside its panel, and either a labelled SVG whose
+  // smallest text stays readable once scaled, or real tables with captions.
+  function figureProblem(ctx, panel, kind, words) {
+    const f = panel.querySelector('figure.viz');
+    if (!f) return 'no figure';
+    if (f.querySelector('img')) return 'the figure is a picture, not drawn from the data';
+    const cap = f.querySelector('figcaption');
+    if (!cap || norm(cap.textContent).length < 25) return 'the figure has no caption';
+    const fr = f.getBoundingClientRect(), pr = (panel.closest('.popup-body') || panel).getBoundingClientRect();
+    if (fr.right > pr.right + 1 || fr.left < pr.left - 1) return 'the figure sticks out of the pop-up';
+    if (f.scrollWidth > f.clientWidth + 1) return 'the figure\'s content is wider than the figure';
+    const text = norm(f.textContent);
+    for (const w of words) if (!text.includes(w)) return 'the figure does not say "' + w + '"';
+    if (kind === 'svg') {
+      const svg = f.querySelector('svg');
+      if (!svg || svg.getAttribute('role') !== 'img') return 'no SVG with role="img"';
+      if ((svg.getAttribute('aria-label') || '').length < 60) return 'the SVG has no real text alternative';
+      const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      const leaves = Array.from(svg.querySelectorAll('text')).flatMap(t => t.children.length ? Array.from(t.children) : [t]);
+      const smallest = Math.min(...leaves.map(t => parseFloat(ctx.win.getComputedStyle(t).fontSize) * scale));
+      if (smallest < 9) return 'the smallest diagram text renders at ' + smallest.toFixed(1) + 'px';
+    } else {
+      const tables = Array.from(f.querySelectorAll('table'));
+      if (!tables.length) return 'no table';
+      for (const t of tables) if (!t.querySelector('caption') || !t.querySelector('th')) return 'a chart table has no caption or headers';
+    }
   }
   const skillsOf = panel => Array.from(panel.querySelectorAll('.tags li')).map(li => norm(li.textContent));
   // Skills are in priority order, but none is drawn differently from the others.
@@ -426,8 +475,7 @@
         if (!p.querySelector('.role-text')) return 'tab ' + (i + 1) + ' has no description';
         if (!p.querySelector('.tags li')) return 'tab ' + (i + 1) + ' lists no skills';
         if (/\b(19|20)\d\d\b/.test(t)) return 'tab ' + (i + 1) + ' repeats a date: ' + t.match(/\b(19|20)\d\d\b/)[0];
-        if (/Boston, MA|Worcester, MA/.test(t)) return 'tab ' + (i + 1) + ' shows a location';
-        if (t.includes(tabText(tabs[i]).name)) return 'tab ' + (i + 1) + ' repeats the employer name';
+        if (/Boston, MA|Worcester, MA/.test(t)) return 'tab ' + (i + 1) + ' shows a location line';
       }
     });
 
@@ -444,12 +492,19 @@
       for (const w of ['Chain of Thought', '1,091', 'F1']) if (!b.includes(w)) return 'WPI text lacks "' + w + '"';
     });
 
-    await check('experience_text_is_a_bold_one_sentence_overview_then_one_paragraph' + at, () => {
+    await check('experience_text_is_a_bold_overview_then_four_labelled_paragraphs_and_a_figure' + at, () => {
       for (let i = 0; i < tabs.length; i++) {
         tabs[i].click();
-        const why = structureProblem(ctx, shown(ctx));
+        const why = structureProblem(ctx, shown(ctx), EXPERIENCE_LABELS);
         if (why) return 'tab ' + (i + 1) + ': ' + why;
       }
+    });
+
+    await check('experience_overview_says_where_the_work_happened' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).querySelector('.role-text > p.overview').textContent);
+      tabs[1].click(); const b = norm(shown(ctx).querySelector('.role-text > p.overview').textContent);
+      if (!/Locust Walk, a biopharma advisory firm in Boston/.test(a)) return 'Locust Walk overview does not say where: ' + a.slice(0, 80);
+      if (!/WPI.s NSF REU program/.test(b)) return 'WPI overview does not say where: ' + b.slice(0, 80);
     });
 
     await check('experience_text_says_only_what_is_accurate' + at, () => {
@@ -457,11 +512,34 @@
       tabs[1].click(); const b = norm(shown(ctx).textContent);
       if (!/ETL scripts/.test(a)) return 'Locust Walk text does not mention the ETL scripts';
       if (/(load|loads|loaded)\s+(straight|directly)\s+into/i.test(a)) return 'Locust Walk text says the output loaded straight into the CRM';
-      if (!/no duplicate|without creating duplicate/i.test(a)) return 'Locust Walk text does not say the ETL avoids duplicates';
-      if (!/80-image sample, 20 from each stage/.test(b)) return 'WPI text does not describe the 80-image sample';
-      if (!/two images from each stage, one that clearly matched its stage and one an observer could easily mislabel/.test(b)) return 'WPI text does not describe the two images per stage';
+      if (!/without creating duplicates/i.test(a)) return 'Locust Walk text does not say the ETL avoids duplicates';
+      if (!/80-image sample, 20 per stage/.test(b)) return 'WPI text does not describe the 80-image sample';
+      if (!/two images per stage, one that clearly matched its stage and one an observer could easily mislabel/.test(b)) return 'WPI text does not describe the two images per stage';
       if (!/ten times/.test(b)) return 'WPI text does not say each prompt ran ten times';
       if (/(all|each of the|every one of the) 1,091/i.test(b)) return 'WPI text claims all 1,091 images were run';
+    });
+
+    await check('locust_walk_figure_is_the_pipeline_flow_diagram' + at, () => {
+      tabs[0].click();
+      return figureProblem(ctx, shown(ctx), 'svg',
+        ['Company list', 'Find leadership and board pages', 'Jina', 'Playwright', 'Claude API', 'title whitelist', 'Apollo', 'ETL scripts', 'CRM']);
+    });
+
+    await check('wpi_figure_is_the_repeat_run_heatmap_from_the_real_data' + at, () => {
+      tabs[1].click();
+      const why = figureProblem(ctx, shown(ctx), 'table', ['Stage 1', 'Stage 4', 'Chain of Thought', 'Few-Shot']);
+      if (why) return why;
+      const rows = Array.from(shown(ctx).querySelectorAll('.heat tbody tr'));
+      if (rows.length !== 6) return 'found ' + rows.length + ' strategy rows';
+      const grid = rows.map(r => Array.from(r.querySelectorAll('td')).map(td => parseInt(td.textContent, 10)));
+      if (grid.some(r => r.length !== 8 || r.some(n => !(n >= 0 && n <= 10)))) return 'each row needs 8 counts between 0 and 10';
+      const want = { 'Chain of Thought': 64, 'CO-STAR': 58, 'Zero-Shot': 58, 'Tree of Thought': 56, 'TIDD-EC': 48, 'Few-Shot': 57 };
+      for (const r of rows) {
+        const name = norm(r.querySelector('th').textContent);
+        const total = Array.from(r.querySelectorAll('td')).reduce((a, td) => a + parseInt(td.textContent, 10), 0);
+        if (want[name] !== total) return name + ' totals ' + total + ' of 80 correct runs, expected ' + want[name];
+      }
+      if (!grid.every(r => r[3] === 0)) return 'image 2B should be 0 of 10 for every strategy';
     });
 
     await check('experience_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
@@ -528,8 +606,8 @@
       tabs[0].click(); const comp = norm(shown(ctx).textContent);
       tabs[1].click(); const lock = norm(shown(ctx).textContent);
       tabs[2].click(); const stock = norm(shown(ctx).textContent);
-      if (!/star schema/i.test(comp) || !/expects it to save over 300 hours/.test(comp))
-        return 'compensation text must name the star schema and say the sponsor "expects it to save over 300 hours"';
+      if (!/star schema/i.test(comp) || !/expects to save over 300 hours/.test(comp))
+        return 'compensation text must name the star schema and say the team "expects to save over 300 hours"';
       if (/\bsaved\b[^.]*300/.test(comp)) return 'compensation text claims 300 hours were saved';
       if (!lock.includes('79 KB to 25 KB') || !lock.includes('108 to 36 microseconds') || !lock.includes('96.1% to 98.3%'))
         return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
@@ -537,11 +615,21 @@
       if (!stock.includes('FinBERT') || !stock.includes('25 days')) return 'stock text must name FinBERT and the 25-day data limit';
     });
 
-    await check('projects_text_is_a_bold_one_sentence_overview_then_one_paragraph' + at, () => {
+    await check('projects_text_is_a_bold_overview_then_four_labelled_paragraphs_and_a_figure' + at, () => {
       for (let i = 0; i < tabs.length; i++) {
         tabs[i].click();
-        const why = structureProblem(ctx, shown(ctx));
+        const why = structureProblem(ctx, shown(ctx), PROJECT_LABELS);
         if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    await check('projects_overview_says_where_the_work_happened' + at, () => {
+      const want = [/For my graduate capstone at WPI, sponsored by a medical device company/,
+                    /In a WPI embedded machine learning course/, /In a WPI deep learning course/];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const o = norm(shown(ctx).querySelector('.card-text > p.overview').textContent);
+        if (!want[i].test(o)) return 'tab ' + (i + 1) + ' overview does not say where: ' + o.slice(0, 80);
       }
     });
 
@@ -549,16 +637,53 @@
       tabs[0].click(); const comp = norm(shown(ctx).textContent);
       tabs[1].click(); const lock = norm(shown(ctx).textContent);
       tabs[2].click(); const stock = norm(shown(ctx).textContent);
-      if (!/I (designed and )?built the Tableau dashboards/.test(comp)) return 'compensation text does not claim the Tableau dashboards';
+      if (!/I designed and built the Tableau dashboards/.test(comp)) return 'compensation text does not claim the Tableau dashboards';
       if (!/My teammates built the Streamlit app/.test(comp)) return 'compensation text does not credit teammates with the Streamlit app';
       if (/\bI\b[^.]*\b(built|designed|created|wrote)\b[^.]*Streamlit/.test(comp)) return 'compensation text claims the Streamlit app';
       if (/\bI\b[^.]*\b(designed|built|created|wrote)\b[^.]*(data model|star schema|calculation engine|stored procedure)/.test(comp)) return 'compensation text claims the shared data model or engine';
-      if (!/together as a team/.test(comp)) return 'compensation text does not say the data model and engine were built together';
-      if (!/My part was compression/.test(lock) || !/The rest of the team trained those models/.test(lock)) return 'smart lock text does not split the team work from the compression';
+      if (!/joint effort across all four of us/.test(comp)) return 'compensation text does not say the data model and engine were a joint effort';
+      if (!/I compressed the wake word model/.test(lock) || !/Teammates trained the models and wrote the Pi software/.test(lock)) return 'smart lock text does not split the team work from the compression';
       if (/\bI\b[^.]*\b(trained|wrote the Pi software|binarized)/.test(lock)) return 'smart lock text claims work that was a teammate\'s';
       if (!/teammates built and tuned the FinBERT sentiment models/.test(stock)) return 'stock text does not credit teammates with the FinBERT models';
-      for (const w of ['15 stocks', 'bidirectional LSTM', 'multi-task transformer', 'dual-stream transformer', 'cross-attention', 'autoencoder', 'focal loss'])
+      for (const w of ['15 S&P 500 stocks', 'BiLSTM', 'multi-task transformer', 'dual-stream transformer', 'autoencoder', 'focal loss'])
         if (!stock.includes(w)) return 'stock text lacks "' + w + '"';
+    });
+
+    await check('compensation_figure_is_the_data_flow_with_my_part_marked' + at, () => {
+      tabs[0].click();
+      const why = figureProblem(ctx, shown(ctx), 'svg',
+        ['Sales data', 'Star schema', 'Streamlit app', 'Rules schema', 'Calculation engine', 'Rule eligibility', 'Tier 1', 'Unified payout table', 'Tableau dashboards']);
+      if (why) return why;
+      const f = shown(ctx).querySelector('figure.viz');
+      const group = cls => Array.from(f.querySelectorAll('rect.' + cls)).map(r => norm(r.nextElementSibling.textContent)).join(' | ');
+      if (!/Tableau dashboards/.test(group('v-mine'))) return 'the Tableau box is not marked as mine';
+      if (/Streamlit/.test(group('v-mine'))) return 'the Streamlit box is marked as mine';
+      if (!/Streamlit app/.test(group('v-dim'))) return 'the Streamlit box is not marked as the teammates\'';
+    });
+
+    await check('smart_lock_figure_charts_size_and_accuracy_for_every_method' + at, () => {
+      tabs[1].click();
+      const why = figureProblem(ctx, shown(ctx), 'table', ['Model size (KB)', 'Accuracy (%)', '79.1', '25.2', '10.3', '98.3', '50.0']);
+      if (why) return why;
+      const tables = Array.from(shown(ctx).querySelectorAll('table.bars'));
+      if (tables.length !== 2) return 'found ' + tables.length + ' charts, expected size and accuracy';
+      for (const t of tables) if (t.querySelectorAll('tbody tr').length !== 9) return 'a chart has ' + t.querySelectorAll('tbody tr').length + ' rows, expected 9';
+      const w = (t, name) => parseFloat(Array.from(t.querySelectorAll('tr')).find(r => norm((r.querySelector('th') || { textContent: '' }).textContent) === name).querySelector('.bar').style.getPropertyValue('--w'));
+      if (!(w(tables[0], 'Original') > w(tables[0], 'Dynamic range') * 2.5)) return 'the Original size bar should be about 3x the dynamic range bar';
+      if (!(w(tables[1], 'Full integer') < 60 && w(tables[1], 'Dynamic range') > 95)) return 'the accuracy bars do not show full integer falling to 50% and dynamic range at 98%';
+      if (!tables.every(t => /Dynamic range/.test(norm(t.querySelector('.bar.best').closest('tr').textContent)))) return 'dynamic range is not the highlighted row in both charts';
+    });
+
+    await check('stock_figure_is_the_dual_stream_model_with_my_parts_marked' + at, () => {
+      tabs[2].click();
+      const why = figureProblem(ctx, shown(ctx), 'svg',
+        ['Price history', 'News headlines', 'Price features', 'FinBERT', 'Autoencoder', 'Price encoder', 'Sentiment encoder', 'Cross-attention', 'Up or down']);
+      if (why) return why;
+      const f = shown(ctx).querySelector('figure.viz');
+      const group = cls => Array.from(f.querySelectorAll('rect.' + cls)).map(r => norm(r.nextElementSibling.textContent)).join(' | ');
+      if (!/Cross-attention/.test(group('v-mine')) || !/Autoencoder/.test(group('v-mine'))) return 'the fusion boxes are not marked as mine';
+      if (/FinBERT/.test(group('v-mine'))) return 'the FinBERT box is marked as mine';
+      if (!/FinBERT/.test(group('v-dim'))) return 'the FinBERT box is not marked as the teammates\'';
     });
 
     await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
@@ -665,6 +790,11 @@
     await check('there_is_no_contact_section_or_contact_popup', () => {
       if (ctx.doc.getElementById('contact')) return '#contact still exists';
       return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('the_page_never_names_the_sponsor', () => {
+      const text = ctx.doc.documentElement.textContent + ' ' + ctx.doc.documentElement.innerHTML;
+      return /Boston Scientific|\bBSC\b/i.test(text) ? 'the sponsor is named on the page' : null;
     });
 
     await check('the_page_never_shows_a_phone_number_or_street_address', () => {
