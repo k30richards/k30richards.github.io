@@ -23,7 +23,7 @@ The closing Section with what roles he is open to and his contact links.
 _Avoid_: Footer
 
 **Panel**:
-A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content inside a Section lives in a Panel.
+A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content in About, Experience, Projects and Contact lives in a Panel. The Hero has no Panels: its content sits directly over the Constellation.
 _Avoid_: Card, box, tile, storage space
 
 **Toolkit**:
@@ -43,7 +43,7 @@ _Avoid_: Particles, network background, canvas
 ### Motion
 
 **Reveal**:
-A Panel fading in and rising into place as it scrolls into view, following the visitor's scroll position, so scrolling back up plays it in reverse.
+A Panel or a Section heading fading in and rising into place as it scrolls into view, following the visitor's scroll position, so scrolling back up plays it in reverse.
 _Avoid_: Entry, entrance, scroll animation, Section Transition
 
 **Active Section**:
