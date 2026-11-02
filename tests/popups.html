@@ -248,12 +248,14 @@
       }
     });
 
-    await check('only_the_about_button_pulses_a_few_times_then_stops' + at, () => {
-      const [first, ...others] = qa(ctx, '.hero-sections a').map(a => ctx.win.getComputedStyle(a));
-      if (first.animationName !== 'nudge') return 'About does not pulse (animation is ' + first.animationName + ')';
-      if (first.animationIterationCount !== '3') return 'the pulse repeats ' + first.animationIterationCount + ' times';
-      if (parseFloat(first.animationDuration) > 3) return 'the pulse is slow: ' + first.animationDuration;
-      return others.every(c => c.animationName === 'none') ? null : 'another button pulses too';
+    await check('only_the_about_button_pulses_and_it_keeps_going_until_opened' + at, () => {
+      const styles = qa(ctx, '.hero-sections a').map(a => [labelOf(a), ctx.win.getComputedStyle(a)]);
+      const about = styles.find(s => s[0] === 'About')[1];
+      if (about.animationName !== 'nudge') return 'About does not pulse (animation is ' + about.animationName + ')';
+      if (about.animationIterationCount !== 'infinite') return 'the pulse repeats ' + about.animationIterationCount + ', not until opened';
+      if (parseFloat(about.animationDuration) > 4) return 'the pulse is slow: ' + about.animationDuration;
+      const others = styles.filter(s => s[0] !== 'About').filter(s => s[1].animationName !== 'none').map(s => s[0]);
+      return others.length ? 'these also pulse: ' + others.join(', ') : null;
     });
 
     await check('reduced_motion_turns_the_pulse_off' + at, () => {
@@ -903,6 +905,38 @@
     });
   }
 
+  /* ---- the pulse on About stops once About has been opened ---------------------- */
+
+  async function pulseTests() {
+    const ctx = await openFrame(375, 812);
+    const at = '@' + ctx.label;
+    const about = () => heroLink(ctx, 'About');
+    const pulsing = () => ctx.win.getComputedStyle(about()).animationName === 'nudge';
+
+    await check('the_pulse_is_still_going_after_opening_another_section' + at, async () => {
+      if (!pulsing()) return 'About is not pulsing to begin with';
+      await open(ctx, 'Experience'); await closeByButton(ctx); await sleep(300);
+      return pulsing() && !about().classList.contains('seen') ? null : 'opening Experience stopped the About pulse';
+    });
+
+    await check('the_pulse_stops_for_good_once_about_has_been_opened' + at, async () => {
+      await open(ctx, 'About');
+      if (!about().classList.contains('seen')) return 'About was opened but is not marked seen';
+      await closeByButton(ctx); await sleep(300);
+      if (pulsing()) return 'About still pulses after it was opened';
+      await open(ctx, 'Experience'); await closeByButton(ctx); await sleep(300);
+      return pulsing() ? 'the pulse came back' : null;
+    });
+
+    await check('reaching_about_with_previous_also_stops_the_pulse' + at, async () => {
+      const fresh = await openFrame(375, 812);
+      await open(fresh, 'Experience');
+      step(fresh, 'prev').click(); await settle();
+      const link = heroLink(fresh, 'About');
+      return link.classList.contains('seen') && fresh.win.getComputedStyle(link).animationName === 'none' ? null : 'the pulse did not stop';
+    });
+  }
+
   /* ---- readability: every visible text color against what it sits on ---------- */
 
   const probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
@@ -1110,6 +1144,7 @@
     await noScriptTests(1280, 800);
     await noScriptTests(375, 812);
     await historyTests();
+    await pulseTests();
     await contrastTests();
     await globalTests();
   } catch (e) {

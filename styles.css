@@ -394,18 +394,19 @@ main {
   color: var(--accent-2);
 }
 
-/* A slight, short pulse on About (three times, then still) says where to start.
-   Only when the pop-ups are built; reduced motion turns it off. */
-html.popups .hero-sections .btn:first-child {
-  animation: nudge 2.4s ease-out 1.2s 3;
+/* A slight pulse on About says where to start. It keeps going until About has
+   been opened (script.js then adds .seen), and only when the pop-ups are built;
+   reduced motion turns it off. */
+html.popups .hero-sections a[href="#about"]:not(.seen) {
+  animation: nudge 3.2s ease-out 1.2s infinite;
 }
 @keyframes nudge {
   0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent-2) 40%, transparent); }
-  70%  { box-shadow: 0 0 0 0.5rem transparent; }
+  55%  { box-shadow: 0 0 0 0.5rem transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
-  html.popups .hero-sections .btn:first-child { animation: none; }
+  html.popups .hero-sections a[href="#about"] { animation: none; }
 }
 
 .hero-contact {

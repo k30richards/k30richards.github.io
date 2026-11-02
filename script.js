@@ -655,6 +655,8 @@
 
     function show(i) {
       current = i;
+      // Once About has been shown, the Hero's pulse on its button stops for good.
+      if (entries[i].hash === '#about') entries[i].link.classList.add('seen');
       entries.forEach(function (entry, k) { entry.page.hidden = k !== i; });
       headingNum.textContent = entries[i].num;
       headingName.textContent = entries[i].name;
