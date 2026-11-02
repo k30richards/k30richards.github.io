@@ -23,7 +23,7 @@ A self-contained container holding one piece of a Section's content, such as the
 _Avoid_: Card, box, tile, storage space
 
 **Toolkit**:
-The Panel in About that groups the tools Kobe already names in his bio by category.
+The Panel in About that groups Kobe's core tools and skills by category, drawn from the highest-priority skills of his experiences and projects.
 _Avoid_: Skills list, tech stack
 
 **Timeline**:

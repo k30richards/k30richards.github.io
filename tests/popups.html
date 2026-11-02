@@ -402,9 +402,19 @@
       return Math.abs(row - seeking) <= 1 ? null : 'Seeking is ' + seeking.toFixed(0) + 'px in a ' + row.toFixed(0) + 'px row';
     });
 
-    await check('about_toolkit_has_four_groups' + at, () => {
-      const n = qa(ctx, 'dialog.popup .toolkit-group').length;
-      return n === 4 ? null : 'found ' + n + ' Toolkit groups';
+    await check('about_toolkit_has_five_groups_with_the_top_skills_of_every_project' + at, () => {
+      const groups = qa(ctx, 'dialog.popup .toolkit-group');
+      if (groups.length !== 5) return 'found ' + groups.length + ' Toolkit groups, expected 5';
+      const names = groups.map(g => norm(g.querySelector('.toolkit-name').textContent));
+      if (JSON.stringify(names) !== JSON.stringify(['Modeling', 'Data', 'Cloud & reporting', 'LLMs', 'Applied & edge ML'])) return 'groups are ' + JSON.stringify(names);
+      const tools = qa(ctx, 'dialog.popup .toolkit-group li').map(li => norm(li.textContent));
+      const top = ['Python', 'ETL', 'Applied AI research', 'Medical image analysis', 'Snowflake', 'SQL', 'Snowflake scripting',
+                   'Model optimization', 'TensorFlow', 'Embedded ML', 'PyTorch', 'Transformers', 'Multimodal data analysis'];
+      const missing = top.filter(t => !tools.includes(t));
+      if (missing.length) return 'the Toolkit lacks: ' + missing.join(', ');
+      const old = ['Scikit-learn', 'Pandas', 'NumPy', 'Azure', 'Tableau', 'Automation', 'Prompt design', 'Extraction from unstructured sources'];
+      const gone = old.filter(t => !tools.includes(t));
+      return gone.length ? 'the Toolkit lost: ' + gone.join(', ') : null;
     });
 
     await closeByButton(ctx);
@@ -519,6 +529,21 @@
       if (/(all|each of the|every one of the) 1,091/i.test(b)) return 'WPI text claims all 1,091 images were run';
     });
 
+    await check('locust_walk_text_describes_the_tools_the_way_kobe_wants' + at, () => {
+      tabs[0].click();
+      const box = shown(ctx).querySelector('.role-text');
+      const prose = Array.from(box.querySelectorAll(':scope > p')).map(p => norm(p.textContent)).join(' ');
+      if (/\bClay\b/i.test(shown(ctx).textContent)) return 'the Locust Walk text names Clay';
+      if (/Jina|Playwright/.test(prose)) return 'the Locust Walk text names Jina or Playwright (only the diagram may)';
+      if (!/open source browser automation tools and RAG frameworks/.test(prose)) return 'the text does not call them open source browser automation tools and RAG frameworks';
+      if (!/Apollo, a sales intelligence platform/.test(prose)) return 'the text does not introduce Apollo as a sales intelligence platform';
+      if (!/explored a range of CRM, enrichment and AI tools, compared their costs and functionality, and picked the best fit/.test(prose)) return 'the text does not say the tools were explored, compared on cost and function, and the best fit picked';
+      if (!/The business development team.s outreach depended/.test(prose)) return 'the problem paragraph does not name the outreach dependency';
+      if (/and automation|deal sourcing/i.test(prose)) return 'the problem paragraph still says "and automation" or "deal sourcing"';
+      if (!/In the time left after the build, I ran the pipeline on a first batch of 211 firms/.test(prose)) return 'the result does not frame the 211 firms as a first batch run in the time left';
+      if (/(only|just|all I (was able|could))/i.test(norm(box.querySelector('p:last-of-type').textContent))) return 'the result reads as an apology for the 211 firms';
+    });
+
     await check('locust_walk_figure_is_the_pipeline_flow_diagram' + at, () => {
       tabs[0].click();
       return figureProblem(ctx, shown(ctx), 'svg',
@@ -612,6 +637,7 @@
       if (!lock.includes('79 KB to 25 KB') || !lock.includes('108 to 36 microseconds') || !lock.includes('96.1% to 98.3%'))
         return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
       if (/115/.test(lock)) return 'smart lock text quotes the baseline 115 mW next to the quantized model';
+      if (/Raspberry Pi \d/.test(lock)) return 'smart lock text names a Raspberry Pi model number';
       if (!stock.includes('FinBERT') || !stock.includes('25 days')) return 'stock text must name FinBERT and the 25-day data limit';
     });
 
@@ -677,8 +703,13 @@
     await check('stock_figure_is_the_dual_stream_model_with_my_parts_marked' + at, () => {
       tabs[2].click();
       const why = figureProblem(ctx, shown(ctx), 'svg',
-        ['Price history', 'News headlines', 'Price features', 'FinBERT', 'Autoencoder', 'Price encoder', 'Sentiment encoder', 'Cross-attention', 'Up or down']);
+        ['Price history', 'News headlines', 'Price features', 'FinBERT', 'Autoencoder', 'Price encoder', 'Sentiment encoder', 'Cross-attention', 'Prediction', 'up or down']);
       if (why) return why;
+      const last = Array.from(shown(ctx).querySelectorAll('figure.viz rect.v-box')).pop();
+      const title = last.nextElementSibling, sub = title.nextElementSibling;
+      if (norm(title.textContent) !== 'Prediction' || norm(sub.textContent) !== 'up or down') return 'the last box reads ' + JSON.stringify([norm(title.textContent), norm(sub.textContent)]);
+      if (parseInt(ctx.win.getComputedStyle(title).fontWeight, 10) < 600) return 'the word Prediction is not bold';
+      if (parseInt(ctx.win.getComputedStyle(sub).fontWeight, 10) >= 600) return 'the line beneath Prediction is bold';
       const f = shown(ctx).querySelector('figure.viz');
       const group = cls => Array.from(f.querySelectorAll('rect.' + cls)).map(r => norm(r.nextElementSibling.textContent)).join(' | ');
       if (!/Cross-attention/.test(group('v-mine')) || !/Autoencoder/.test(group('v-mine'))) return 'the fusion boxes are not marked as mine';
@@ -790,6 +821,10 @@
     await check('there_is_no_contact_section_or_contact_popup', () => {
       if (ctx.doc.getElementById('contact')) return '#contact still exists';
       return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('the_page_never_names_a_tool_that_was_only_researched', () => {
+      return /\bClay\b/.test(ctx.doc.documentElement.textContent) ? 'Clay is named on the page' : null;
     });
 
     await check('the_page_never_names_the_sponsor', () => {
