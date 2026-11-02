@@ -408,7 +408,7 @@
       for (const g of groups) got[norm(g.querySelector('.toolkit-name').textContent)] = Array.from(g.querySelectorAll('li')).map(li => norm(li.textContent));
       const want = {
         'Modeling': ['PyTorch', 'TensorFlow', 'Scikit-learn', 'Transformers', 'Multimodal data analysis'],
-        'Data': ['Python', 'Pandas', 'NumPy', 'SQL', 'SQL scripting', 'ETL'],
+        'Data': ['Python', 'Pandas', 'NumPy', 'SQL', 'ETL'],
         'Cloud & reporting': ['Snowflake', 'Azure', 'Tableau'],
         'LLMs': ['Automation', 'Prompt design', 'Extraction from unstructured sources'],
         'Applied & edge ML': ['Applied AI research', 'Medical image analysis', 'Model optimization', 'Embedded ML']
@@ -733,7 +733,7 @@
 
     await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
       const want = [
-        ['Snowflake', 'SQL', 'SQL Scripting', 'Tableau', 'Compensation Planning Analysis'],
+        ['Snowflake', 'SQL', 'Tableau', 'Compensation Planning Analysis'],
         ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
         ['PyTorch', 'Transformers', 'Multimodal Data Analysis', 'Time-Series Modeling', 'NLP', 'Model Evaluation']
       ];
@@ -835,6 +835,11 @@
     await check('there_is_no_contact_section_or_contact_popup', () => {
       if (ctx.doc.getElementById('contact')) return '#contact still exists';
       return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('no_skills_list_or_toolkit_lists_scripting', () => {
+      const bad = qa(ctx, '.tags li, .toolkit-group li').find(li => /scripting/i.test(li.textContent));
+      return bad ? 'a list still has "' + norm(bad.textContent) + '"' : null;
     });
 
     await check('the_page_never_says_snowflake_scripting', () => {
