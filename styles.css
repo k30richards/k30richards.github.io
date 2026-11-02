@@ -56,6 +56,12 @@
                                         /* the fixed top bar                */
   --bar-blur:   10px;
 
+  /* --- Section pop-ups --------------------------------------------------- */
+  --popup-bg:   color-mix(in srgb, var(--bg-raised) 88%, transparent);
+                                        /* the pop-up card; kept solid for reading */
+  --popup-dim:  color-mix(in srgb, var(--bg) 62%, transparent);
+                                        /* the page behind an open pop-up   */
+
   /* --- Motion ------------------------------------------------------------ */
   --reveal-distance: 20px;    /* how far below its place a Panel starts      */
   --depth-drift:     0.1;     /* background moves at this fraction of scroll */
@@ -71,6 +77,7 @@ html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;  /* anchor jumps land below the fixed top bar   */
+  scrollbar-gutter: stable;  /* no sideways jump when a pop-up locks scrolling */
 }
 
 body {
@@ -132,6 +139,16 @@ img { max-width: 100%; display: block; }
   font-weight: 700;
 }
 .skip:focus { left: var(--gutter); z-index: 10000; }
+
+/* Read by screen readers, never shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 /* ==========================================================================
    Constellation  -  the animated background, fixed behind everything.
@@ -367,6 +384,29 @@ main {
   background: var(--accent-2);
   border-color: var(--accent-2);
   color: var(--ink);
+}
+
+/* Quick look: the row of links that open each Section as a pop-up. */
+.hero-explore {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-m);
+}
+.hero-explore nav { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+.hero-explore-label {
+  font-size: var(--step--1);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.btn-small {
+  padding: 0.6em 1.15em;
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
 }
 
 /* ==========================================================================
@@ -666,6 +706,247 @@ main {
 .contact-links a:hover { color: var(--accent); }
 
 /* ==========================================================================
+   Section pop-ups  -  script.js builds one <dialog> from the Sections'
+   own content and opens it from the Hero's Quick look links. The dialog
+   covers the window and dims the page; the card inside holds the content.
+   ========================================================================== */
+
+html.popup-open { overflow: hidden; }   /* the page stays put behind it */
+
+.popup {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: clamp(var(--space-xs), 7vh, 5rem) var(--gutter);
+  border: 0;
+  color: var(--ink);
+  color-scheme: dark;        /* dark scrollbars inside the pop-up */
+  background: var(--popup-dim);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.popup[open] {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;   /* top-aligned, so the bar stays put between Sections */
+  animation: popup-fade var(--speed) var(--ease);
+}
+.popup::backdrop { background: transparent; }
+.popup [hidden] { display: none !important; }  /* beats the display rules below */
+
+.popup-card {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 46rem);
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--popup-bg);
+  -webkit-backdrop-filter: blur(var(--bar-blur));
+  backdrop-filter: blur(var(--bar-blur));
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.6);
+  animation: popup-rise 320ms var(--ease);
+}
+
+.popup-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-s) var(--space-m);
+  border-bottom: var(--border);
+}
+
+.popup-title {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: var(--step-2);
+  outline: none;             /* focused by script on open, not by the visitor */
+}
+
+.popup-next,
+.popup-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  min-height: 2.75rem;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+.popup-next { padding: 0 1em; letter-spacing: 0.06em; text-transform: uppercase; }
+.popup-close { width: 2.75rem; }
+.popup-next:hover,
+.popup-close:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+.popup-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;  /* scrolling never leaks to the page behind */
+  padding: var(--space-m);
+}
+
+.popup-page { display: grid; gap: var(--space-m); }
+.popup-page:not([hidden]) { animation: popup-swap 260ms var(--ease); }
+
+.popup-label {
+  font-family: var(--font-body);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: var(--space-xs);
+}
+
+/* Compact text with a "Read more" toggle. */
+.popup-more { display: grid; justify-items: start; gap: var(--space-xs); }
+.popup-summary { margin: 0; }
+.popup-full .lead { font-size: var(--step-1); }
+
+.popup-toggle,
+.popup-chip,
+.popup-tab,
+.popup-fact-toggle {
+  font: inherit;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.popup-toggle {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--accent);
+}
+.popup-toggle::after { content: " \25BE"; }
+.popup-toggle[aria-expanded="true"]::after { content: " \25B4"; }
+.popup-toggle:hover { color: var(--accent-2); }
+
+/* About: quick facts as tiles; the long ones open on a tap. */
+.popup-facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2xs);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+}
+.popup-fact > *,
+.popup-fact-toggle {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  height: 100%;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-xs);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.popup-fact-toggle:hover { border-color: var(--ink-faint); }
+.popup-fact-toggle[aria-expanded="true"] { border-color: var(--accent); }
+.popup-fact:has([aria-expanded="true"]) { grid-column: 1 / -1; }
+.popup-fact-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.popup-fact-value { font-size: var(--step--1); line-height: 1.45; }
+.popup-fact-toggle .popup-fact-value {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.popup-fact-toggle[aria-expanded="true"] .popup-fact-value { display: block; }
+.popup-fact-toggle .popup-fact-label::after { content: " \25BE"; }
+.popup-fact-toggle[aria-expanded="true"] .popup-fact-label::after { content: " \25B4"; }
+
+/* Experience: one tab per role. Projects: one chip per topic. */
+.popup-tabs,
+.popup-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+.popup-tab,
+.popup-chip {
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease),
+              color var(--speed) var(--ease);
+}
+.popup-tab {
+  display: grid;
+  text-align: left;
+  padding: 0.5em 1.1em;
+  line-height: 1.3;
+  border-radius: var(--radius-sm);
+}
+.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ink-faint); }
+.popup-tab:hover,
+.popup-chip:hover { border-color: var(--ink-faint); }
+.popup-tab[aria-selected="true"],
+.popup-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+.popup-tab[aria-selected="true"] .popup-tab-when { color: var(--accent-2); }
+
+.popup-role { display: grid; gap: var(--space-xs); padding-top: var(--space-s); }
+.popup-role-title,
+.popup-project-title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--wonk);
+  font-size: var(--step-1);
+}
+.popup-role-org { margin: 0; color: var(--ink-muted); }
+.popup-role-when,
+.popup-project-meta {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.popup-chip { padding: 0.4em 1em; font-size: var(--step--1); }
+.popup-count { margin: var(--space-xs) 0 0; font-size: var(--step--1); color: var(--ink-faint); }
+.popup-project-list { display: grid; gap: var(--space-s); }
+.popup-project {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-s);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.popup-project-head { display: flex; align-items: center; gap: var(--space-xs); }
+.popup-project .card-icon { flex: none; }
+.popup-project .card-links { margin: 0; }
+
+.popup-contact { display: grid; justify-items: start; gap: var(--space-s); }
+
+@keyframes popup-fade { from { opacity: 0; } }
+@keyframes popup-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+@keyframes popup-swap { from { opacity: 0; transform: translateX(12px); } }
+
+/* ==========================================================================
    Responsive + motion
    ========================================================================== */
 
@@ -678,6 +959,12 @@ main {
     top: calc(var(--space-s) + 0.3rem);
     left: calc(var(--space-xs) - var(--space-m) - 7px);
   }
+
+  /* Pop-ups become a sheet that fills the screen, less a small margin. */
+  .popup { padding: var(--space-xs); }
+  .popup-card { width: 100%; height: 100%; }
+  .popup-bar { padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-s); }
+  .popup-body { padding: var(--space-s); }
 
   /* Dates stack above the role instead of sitting beside it. */
   .role { grid-template-columns: minmax(0, 1fr); gap: var(--space-s); }

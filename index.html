@@ -55,6 +55,17 @@
       <a class="btn btn-primary" href="#work">View projects</a>
       <a class="btn" href="#contact">Get in touch</a>
     </div>
+    <!-- EDIT: quick look. Each link opens its Section as a pop-up built from
+         that Section's own content (without JavaScript it jumps there). -->
+    <div class="hero-explore">
+      <span class="hero-explore-label" id="quick-look">Quick look</span>
+      <nav aria-labelledby="quick-look">
+        <a class="btn btn-small" href="#about">About</a>
+        <a class="btn btn-small" href="#experience">Experience</a>
+        <a class="btn btn-small" href="#work">Projects</a>
+        <a class="btn btn-small" href="#contact">Contact</a>
+      </nav>
+    </div>
   </section>
 
   <!-- ==========================================================
@@ -64,6 +75,8 @@
     <h2 class="section-title"><span class="section-num">01</span> About</h2>
     <div class="about-grid">
       <div class="panel about-body">
+        <!-- EDIT: summary - the short version shown first in the pop-up -->
+        <template class="summary">B.S./M.S. in Data Science from WPI, May 2026. Most of my work comes back to getting a model out of the notebook and into something a team can rely on.</template>
         <p class="lead">
           I completed a combined B.S. and M.S. in Data Science at Worcester
           Polytechnic Institute in May 2026. Between an internship,
@@ -141,6 +154,8 @@
           <div class="role-what">
             <h3 class="role-title">AI Intern</h3>
             <p class="role-org">Locust Walk</p>
+            <!-- EDIT: summary - the short version shown first in the pop-up -->
+            <template class="summary">Built a pipeline that pairs web scraping with the Claude API to replace the firm's manual CRM contact research, and the team uses it today.</template>
             <p class="role-text">
               Designed and built automation tools that streamline the firm's
               research and data workflows, including a pipeline that pairs web
@@ -166,6 +181,7 @@
           <div class="role-what">
             <h3 class="role-title">Research Associate</h3>
             <p class="role-org">Worcester Polytechnic Institute</p>
+            <template class="summary">Tested six ChatGPT prompting strategies for classifying pressure wound images, and Chain of Thought came out ahead on every metric.</template>
             <p class="role-text">
               Evaluated a range of large language model prompting strategies for
               classifying medical images, benchmarking each against standard
@@ -189,6 +205,8 @@
        To add a project: copy one entire <article class="card panel"> …
        </article> block below and change the icon, number, title, text,
        tags, and links. The grid reflows on its own — no other changes needed.
+       data-topics: comma-separated topics; each becomes a filter chip in
+       the Projects pop-up.
        ========================================================== -->
   <section class="section" id="work">
     <h2 class="section-title"><span class="section-num">03</span> Projects</h2>
@@ -196,7 +214,7 @@
     <div class="grid">
 
       <!-- ---- project card ---- -->
-      <article class="card panel">
+      <article class="card panel" data-topics="Data">
         <div class="card-head">
           <span class="card-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
@@ -205,6 +223,8 @@
         </div>
         <h3 class="card-title">Unified Compensation Modeling Engine</h3>
         <p class="card-meta">Graduate Qualifying Project &middot; Jan&ndash;May 2026</p>
+        <!-- EDIT: summary - the short version shown first in the pop-up -->
+        <template class="summary">Our team turned a manual, spreadsheet-based compensation process into a rule-driven system on Snowflake, with a Streamlit app for comparing plan scenarios.</template>
         <p class="card-text">
           Partnered with a medical device company sponsor's Urology
           Compensation Strategy team to modernize a manual, spreadsheet-based
@@ -221,7 +241,7 @@
       </article>
 
       <!-- ---- project card ---- -->
-      <article class="card panel">
+      <article class="card panel" data-topics="Machine learning, Embedded">
         <div class="card-head">
           <span class="card-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
@@ -230,6 +250,7 @@
         </div>
         <h3 class="card-title">Edge-Based Smart Lock System</h3>
         <p class="card-meta">Jan&ndash;May 2025</p>
+        <template class="summary">Wake word and sign digit recognition on a Raspberry Pi for touch-free unlocking, with the model cut 68% in size while holding 98.3% accuracy.</template>
         <p class="card-text">
           An embedded system on a Raspberry Pi that uses audio and visual
           recognition to enable accessible, touch-free door unlocking. Most of
@@ -248,7 +269,7 @@
       </article>
 
       <!-- ---- project card ---- -->
-      <article class="card panel">
+      <article class="card panel" data-topics="Machine learning">
         <div class="card-head">
           <span class="card-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
@@ -257,6 +278,7 @@
         </div>
         <h3 class="card-title">Multimodal Stock Movement Prediction</h3>
         <p class="card-meta">Jan&ndash;May 2025</p>
+        <template class="summary">A four-person course project testing whether financial news sentiment adds real signal to stock price prediction beyond price history alone.</template>
         <p class="card-text">
           A hybrid deep learning model that combines financial news sentiment
           with historical price data to predict stock price movement, exploring

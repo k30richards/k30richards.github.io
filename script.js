@@ -3,7 +3,8 @@
      1. the Constellation background,
      2. the scroll-linked Reveal of Panels and Section headings,
      3. the Timeline line in Experience,
-     4. the Active Section highlight and the progress line in the top bar.
+     4. the Active Section highlight and the progress line in the top bar,
+     5. the Section pop-ups opened from the Hero's Quick look links.
 
    Everything here is an enhancement. Without it the page is complete and
    static, and with reduced motion only the top bar state is kept.
@@ -407,14 +408,398 @@
   window.addEventListener('scroll', queueUpdate, { passive: true });
   window.addEventListener('hashchange', function () { holdSection(location.hash); });
   // A click on a link to the hash already in the address bar fires no
-  // hashchange, so watch the clicks too.
+  // hashchange, so watch the clicks too. A link that opened a pop-up
+  // instead of jumping holds nothing.
   document.addEventListener('click', function (e) {
     var link = e.target.closest && e.target.closest('a[href^="#"]');
-    if (link) holdSection(link.getAttribute('href'));
+    if (link && !e.defaultPrevented) holdSection(link.getAttribute('href'));
   });
   window.addEventListener('resize', relayout);
   // Web fonts and late layout shifts move everything; re-measure when the
   // page's height changes.
   if (window.ResizeObserver) new ResizeObserver(relayout).observe(document.body);
   window.addEventListener('load', relayout);
+
+  /* ------------------------------------------------------------------------
+     5. Section pop-ups
+     Each Quick look link in the Hero opens its Section in one shared
+     <dialog>, built here from the Section's own content, so everything is
+     still edited in one place in index.html. Long text shows its
+     <template class="summary"> first, with a "Read more" toggle. Without
+     the script, or in a browser with no <dialog>, the links just jump.
+     ------------------------------------------------------------------------ */
+
+  var FACT_CLAMP = 40;         // facts longer than this (characters) start clamped
+
+  var uid = 0;
+
+  function within(scope, selector) {
+    return Array.prototype.slice.call(scope.querySelectorAll(selector));
+  }
+
+  function el(tag, className, text) {
+    var e = document.createElement(tag);
+    if (className) e.className = className;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function button(className, text) {
+    var b = el('button', className, text);
+    b.type = 'button';
+    return b;
+  }
+
+  function newId(prefix) { return prefix + '-' + (++uid); }
+
+  function textOf(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
+
+  function summaryOf(scope) {
+    var t = scope.querySelector('template.summary');
+    return t ? textOf(t.content) : '';
+  }
+
+  function appendClone(parent, node) {
+    if (node) parent.appendChild(node.cloneNode(true));
+  }
+
+  // The summary, with a toggle that swaps it for the full text.
+  function expandable(summary, fullNodes) {
+    var box = el('div', 'popup-more');
+    var full = el('div', 'popup-full');
+    fullNodes.forEach(function (n) { appendClone(full, n); });
+    if (!summary) {
+      box.appendChild(full);
+      return box;
+    }
+    var short = el('p', 'popup-summary', summary);
+    var toggle = button('popup-toggle', 'Read more');
+    full.id = newId('popup-full');
+    full.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', full.id);
+    toggle.addEventListener('click', function () {
+      var open = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.textContent = open ? 'Show less' : 'Read more';
+      short.hidden = open;
+      full.hidden = !open;
+    });
+    box.appendChild(short);
+    box.appendChild(full);
+    box.appendChild(toggle);
+    return box;
+  }
+
+  function labelled(text, content) {
+    var box = el('div');
+    box.appendChild(el('h3', 'popup-label', text));
+    box.appendChild(content);
+    return box;
+  }
+
+  function buildAbout(section, page) {
+    var bio = section.querySelector('.about-body');
+    if (bio) page.appendChild(expandable(summaryOf(bio), within(bio, 'p')));
+
+    // Quick facts as tiles; a long one is a button that unclamps it.
+    var facts = el('ul', 'popup-facts');
+    within(section, '.facts > div').forEach(function (row) {
+      var item = el('li', 'popup-fact');
+      var label = el('span', 'popup-fact-label', textOf(row.querySelector('dt')));
+      var value = el('span', 'popup-fact-value', textOf(row.querySelector('dd')));
+      var tile = value.textContent.length > FACT_CLAMP ? button('popup-fact-toggle') : el('div');
+      if (tile.type === 'button') {
+        tile.setAttribute('aria-expanded', 'false');
+        tile.addEventListener('click', function () {
+          tile.setAttribute('aria-expanded', String(tile.getAttribute('aria-expanded') !== 'true'));
+        });
+      }
+      tile.appendChild(label);
+      tile.appendChild(value);
+      item.appendChild(tile);
+      facts.appendChild(item);
+    });
+    if (facts.children.length) page.appendChild(labelled('Quick facts', facts));
+
+    var groups = within(section, '.toolkit-group');
+    if (groups.length) {
+      var toolkit = el('div');
+      groups.forEach(function (g) { appendClone(toolkit, g); });
+      page.appendChild(labelled('Toolkit', toolkit));
+    }
+  }
+
+  // One tab per role, following the ARIA tabs pattern: arrow keys, Home
+  // and End move between tabs, and only the selected tab is in Tab order.
+  function buildExperience(section, page) {
+    var roles = within(section, '.role');
+    if (!roles.length) return;
+    var list = el('div', 'popup-tabs');
+    list.setAttribute('role', 'tablist');
+    list.setAttribute('aria-label', 'Roles');
+    page.appendChild(list);
+
+    var tabs = [], panels = [];
+    roles.forEach(function (role) {
+      var tab = button('popup-tab');
+      var panel = el('div', 'popup-role');
+      tab.id = newId('popup-tab');
+      panel.id = newId('popup-role');
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-controls', panel.id);
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', tab.id);
+
+      var org = textOf(role.querySelector('.role-org'));
+      var dates = textOf(role.querySelector('.role-dates'));
+      var years = dates.match(/\d{4}/g) || [''];
+      tab.appendChild(el('span', 'popup-tab-org', org));
+      tab.appendChild(el('span', 'popup-tab-when', years[years.length - 1]));
+
+      panel.appendChild(el('h3', 'popup-role-title', textOf(role.querySelector('.role-title'))));
+      panel.appendChild(el('p', 'popup-role-org', org));
+      panel.appendChild(el('p', 'popup-role-when',
+        [dates, textOf(role.querySelector('.role-place'))].filter(Boolean).join(' · ')));
+      panel.appendChild(expandable(summaryOf(role), within(role, '.role-text')));
+      appendClone(panel, role.querySelector('.tags'));
+
+      tab.addEventListener('click', function () { select(tabs.indexOf(tab)); });
+      tabs.push(tab);
+      panels.push(panel);
+      list.appendChild(tab);
+      page.appendChild(panel);
+    });
+
+    function select(i) {
+      tabs.forEach(function (t, k) {
+        t.setAttribute('aria-selected', String(k === i));
+        t.tabIndex = k === i ? 0 : -1;
+        panels[k].hidden = k !== i;
+      });
+    }
+
+    list.addEventListener('keydown', function (e) {
+      var i = tabs.indexOf(document.activeElement);
+      var to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (i < 0 || to === undefined) return;
+      e.preventDefault();
+      select(wrap(to, tabs.length));
+      tabs[wrap(to, tabs.length)].focus();
+    });
+
+    select(0);
+  }
+
+  // Topic chips over a list of compact projects. Topics come from each
+  // project's data-topics, most-used first; "All" shows everything.
+  function buildProjects(section, page) {
+    var cards = within(section, '.card');
+    if (!cards.length) return;
+
+    var counts = {}, topics = [];
+    var cardTopics = cards.map(function (card) {
+      return (card.getAttribute('data-topics') || '').split(',').map(function (t) {
+        t = t.trim();
+        if (t && !counts[t]) { counts[t] = 0; topics.push(t); }
+        if (t) counts[t]++;
+        return t;
+      }).filter(Boolean);
+    });
+    topics = topics.map(function (t, i) { return { name: t, order: i }; })
+      .sort(function (a, b) { return counts[b.name] - counts[a.name] || a.order - b.order; })
+      .map(function (t) { return t.name; });
+
+    var items = cards.map(function (card) {
+      var item = el('article', 'popup-project');
+      var head = el('div', 'popup-project-head');
+      appendClone(head, card.querySelector('.card-icon'));
+      var titles = el('div');
+      titles.appendChild(el('h3', 'popup-project-title', textOf(card.querySelector('.card-title'))));
+      var meta = textOf(card.querySelector('.card-meta'));
+      if (meta) titles.appendChild(el('p', 'popup-project-meta', meta));
+      head.appendChild(titles);
+      item.appendChild(head);
+      item.appendChild(expandable(summaryOf(card), within(card, '.card-text')));
+      appendClone(item, card.querySelector('.tags'));
+      appendClone(item, card.querySelector('.card-links'));
+      return item;
+    });
+
+    if (topics.length) {
+      var filters = el('div', 'popup-filters');
+      filters.setAttribute('role', 'group');
+      filters.setAttribute('aria-label', 'Filter projects by topic');
+      var count = el('p', 'popup-count');
+      count.setAttribute('aria-live', 'polite');
+      var chips = [];
+
+      var show = function (topic) {
+        chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c.textContent === topic)); });
+        var shown = 0;
+        items.forEach(function (item, i) {
+          item.hidden = topic !== 'All' && cardTopics[i].indexOf(topic) < 0;
+          if (!item.hidden) shown++;
+        });
+        count.textContent = topic === 'All' ? 'All ' + items.length + ' projects' :
+          shown + ' of ' + items.length + ' projects: ' + topic;
+      };
+
+      ['All'].concat(topics).forEach(function (topic) {
+        var chip = button('popup-chip', topic);
+        chip.addEventListener('click', function () { show(topic); });
+        chips.push(chip);
+        filters.appendChild(chip);
+      });
+      var top = el('div');
+      top.appendChild(filters);
+      top.appendChild(count);
+      page.appendChild(top);
+      show('All');
+    }
+
+    var list = el('div', 'popup-project-list');
+    items.forEach(function (item) { list.appendChild(item); });
+    page.appendChild(list);
+  }
+
+  function buildContact(section, page) {
+    var box = el('div', 'popup-contact');
+    ['.contact-line', '.contact-mail', '.contact-links'].forEach(function (s) {
+      appendClone(box, section.querySelector(s));
+    });
+    page.appendChild(box);
+  }
+
+  var builders = { about: buildAbout, experience: buildExperience, work: buildProjects, contact: buildContact };
+
+  function buildPopups(links) {
+    var entries = [];
+    links.forEach(function (a) {
+      var section = document.querySelector(a.getAttribute('href'));
+      var build = section && builders[section.id];
+      if (!build) return;
+      var title = section.querySelector('.section-title');
+      var num = textOf(title && title.querySelector('.section-num'));
+      var page = el('div', 'popup-page');
+      page.hidden = true;
+      build(section, page);
+      entries.push({
+        link: a, page: page, num: num,
+        name: title ? textOf(title).replace(num, '').trim() : textOf(a)
+      });
+    });
+    if (!entries.length) return;
+
+    var dialog = el('dialog', 'popup');
+    var card = el('div', 'popup-card');
+    var bar = el('div', 'popup-bar');
+    var heading = el('h2', 'popup-title');
+    var headingNum = el('span', 'section-num');
+    var headingName = el('span');
+    var next = button('popup-next');
+    var nextName = el('span');
+    var close = button('popup-close');
+    var body = el('div', 'popup-body');
+    var live = el('p', 'visually-hidden');
+    var current = 0, opener = null, pressedOnDim = false;
+
+    heading.id = 'popup-title';
+    heading.tabIndex = -1;
+    dialog.setAttribute('aria-labelledby', heading.id);
+    dialog.setAttribute('aria-modal', 'true');
+    live.setAttribute('aria-live', 'polite');
+    close.setAttribute('aria-label', 'Close');
+    close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    next.appendChild(nextName);
+    next.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>');
+
+    heading.appendChild(headingNum);
+    heading.appendChild(document.createTextNode(' '));   // reads "02 Experience"
+    heading.appendChild(headingName);
+    bar.appendChild(heading);
+    if (entries.length > 1) bar.appendChild(next);
+    bar.appendChild(close);
+    entries.forEach(function (entry) { body.appendChild(entry.page); });
+    card.appendChild(bar);
+    card.appendChild(body);
+    dialog.appendChild(card);
+    dialog.appendChild(live);
+    document.body.appendChild(dialog);
+
+    function show(i) {
+      current = i;
+      entries.forEach(function (entry, k) { entry.page.hidden = k !== i; });
+      headingNum.textContent = entries[i].num;
+      headingName.textContent = entries[i].name;
+      var after = entries[wrap(i + 1, entries.length)];
+      nextName.textContent = after.name;
+      next.setAttribute('aria-label', 'Next: ' + after.name);
+      body.scrollTop = 0;
+    }
+
+    function open(i, from) {
+      opener = from;
+      live.textContent = '';
+      show(i);
+      root.classList.add('popup-open');
+      dialog.showModal();
+      heading.focus();
+    }
+
+    // Focus stays on the arrow so it can be pressed again; the live
+    // region says where it went.
+    next.addEventListener('click', function () {
+      show(wrap(current + 1, entries.length));
+      live.textContent = entries[current].name + ', ' + (current + 1) + ' of ' + entries.length;
+    });
+
+    close.addEventListener('click', function () { dialog.close(); });
+
+    // Esc fires "cancel" and closes the dialog natively; every way of
+    // closing ends here.
+    dialog.addEventListener('close', function () {
+      root.classList.remove('popup-open');
+      if (opener) opener.focus();
+    });
+
+    // A click on the dimmed page around the card closes it, but not the
+    // end of a text selection dragged out of the card.
+    dialog.addEventListener('pointerdown', function (e) { pressedOnDim = e.target === dialog; });
+    dialog.addEventListener('click', function (e) {
+      if (e.target === dialog && pressedOnDim) dialog.close();
+    });
+
+    // Tab and Shift+Tab cycle inside the dialog and never reach the
+    // browser's own toolbar.
+    dialog.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+      var stops = within(dialog, 'a[href], button, [tabindex]').filter(function (n) {
+        return n.tabIndex >= 0 && !n.disabled && n.getClientRects().length;
+      });
+      if (!stops.length) return;
+      var first = stops[0], last = stops[stops.length - 1], at = document.activeElement;
+      if (e.shiftKey && (at === first || stops.indexOf(at) < 0)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && at === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    entries.forEach(function (entry, i) {
+      entry.link.setAttribute('aria-haspopup', 'dialog');
+      entry.link.addEventListener('click', function (e) {
+        // Ctrl/Cmd/Shift-click and middle-click keep their usual meaning.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        open(i, entry.link);
+      });
+    });
+  }
+
+  if (window.HTMLDialogElement && typeof HTMLDialogElement.prototype.showModal === 'function') {
+    buildPopups(all('.hero-explore a[href^="#"]'));
+  }
 }());

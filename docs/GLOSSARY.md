@@ -34,6 +34,18 @@ _Avoid_: Skills list, tech stack
 The vertical line in Experience that the role Panels hang off, in date order.
 _Avoid_: Roles list
 
+**Quick look**:
+The row of links in the Hero that open each Section as a Section pop-up. Without JavaScript they jump to the Section instead. (Sandbox experiment, `sandbox/section-popups` only.)
+_Avoid_: Hero nav, shortcuts
+
+**Section pop-up**:
+A dialog over the dimmed page showing one Section in compact form: a short summary first with "Read more" for the full text, plus that Section's controls (role tabs, topic chips, fact tiles). Its arrow moves to the next Section's pop-up, wrapping from Contact to About. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
+_Avoid_: Modal, lightbox, overlay
+
+**Summary**:
+The short version of a long piece of text (the bio, a role, a project), kept beside it in a `<template class="summary">` and shown first in a Section pop-up.
+_Avoid_: Excerpt, blurb, TL;DR
+
 ### Background
 
 **Constellation**:
