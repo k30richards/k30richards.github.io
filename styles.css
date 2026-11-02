@@ -8,8 +8,7 @@
 :root {
   /* --- Colors ------------------------------------------------------------ */
   --bg:            #0a0e17;   /* page background (cool near-black)           */
-  --bg-raised:     #131a28;   /* raised surfaces                             */
-  --bg-sunken:     #060911;   /* wells                                       */
+  --bg-raised:     #131a28;   /* raised surfaces (Panels, chips)             */
   --ink:           #e9eefb;   /* primary text (cool near-white)              */
   --ink-muted:     #97a5c0;   /* secondary text                              */
   --ink-faint:     #57647f;   /* numbers, hairlines, quiet details           */
@@ -50,10 +49,12 @@
   --speed:     220ms;
 
   /* --- Panels (frosted glass over the Constellation) --------------------- */
-  --panel-bg:   rgba(19, 26, 40, 0.6);  /* --bg-raised at 60%; raise the last
-                                           number to hide more background  */
+  --panel-bg:   color-mix(in srgb, var(--bg-raised) 60%, transparent);
+                                        /* raise the % to hide more background */
   --panel-blur: 6px;                    /* softens the lines behind a Panel */
-  --bar-bg:     rgba(10, 14, 23, 0.72); /* the fixed top bar                */
+  --bar-bg:     color-mix(in srgb, var(--bg) 72%, transparent);
+                                        /* the fixed top bar                */
+  --bar-blur:   10px;
 
   /* --- Motion ------------------------------------------------------------ */
   --reveal-distance: 20px;    /* how far below its place a Panel starts      */
@@ -216,8 +217,13 @@ main {
 .panel,
 .section-title {
   opacity: var(--reveal, 1);
-  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance)));
+  /* --lift is an extra offset on top of the Reveal (the card hover). */
+  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance) + var(--lift, 0px)));
 }
+
+/* A Panel holding keyboard focus is always fully revealed, so a link
+   tabbed to is never faded or displaced. */
+.panel:focus-within { --reveal: 1 !important; }
 
 /* ==========================================================================
    Top bar  -  fixed, with the Active Section highlighted and a progress line
@@ -228,8 +234,8 @@ main {
   inset: 0 0 auto 0;
   z-index: 10;
   background: var(--bar-bg);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(var(--bar-blur));
+  backdrop-filter: blur(var(--bar-blur));
   border-bottom: var(--border);
 }
 
@@ -528,7 +534,7 @@ main {
 }
 /* The hover lift adds to the Reveal offset rather than replacing it. */
 .card:hover {
-  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance) - 4px));
+  --lift: -4px;
   border-color: var(--ink-faint);
 }
 .card:hover::before,
@@ -548,7 +554,7 @@ main {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: var(--radius-sm);
-  background: rgba(77, 155, 255, 0.14);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
   color: var(--accent-2);
 }
 
@@ -639,7 +645,7 @@ main {
   overflow-wrap: anywhere;   /* only breaks if it genuinely cannot fit */
   color: var(--accent);
   text-decoration: none;
-  border-bottom: 3px solid rgba(77, 155, 255, 0.35);
+  border-bottom: 3px solid color-mix(in oklab, var(--accent) 35%, transparent);
   transition: border-color var(--speed) var(--ease);
 }
 .contact-mail:hover { border-bottom-color: var(--accent); }

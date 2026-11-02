@@ -16,20 +16,22 @@
   var root = document.documentElement;
   var reduceMotion = window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var theme = getComputedStyle(root);
+  var rootStyle = getComputedStyle(root);
 
   function themeNumber(name, fallback) {
-    var n = parseFloat(theme.getPropertyValue(name));
+    var n = parseFloat(rootStyle.getPropertyValue(name));
     return isNaN(n) ? fallback : n;
   }
 
   // "#4d9bff" (or "#49f") -> "77, 155, 255", ready for rgba().
   function themeRgb(name, fallback) {
-    var hex = theme.getPropertyValue(name).trim().replace('#', '');
+    var hex = rootStyle.getPropertyValue(name).trim().replace('#', '');
     if (hex.length === 3) hex = hex.replace(/./g, '$&$&');
     if (!/^[0-9a-f]{6}$/i.test(hex)) return fallback;
     return [0, 2, 4].map(function (i) { return parseInt(hex.substr(i, 2), 16); }).join(', ');
   }
+
+  function rgba(rgb, alpha) { return 'rgba(' + rgb + ', ' + alpha.toFixed(3) + ')'; }
 
   // Page position of an element's top, ignoring transforms (the Reveal
   // moves Panels, and that must not feed back into where they "are").
@@ -40,6 +42,14 @@
   }
 
   function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+
+  // x wrapped into [0, size), negative x included.
+  function wrap(x, size) { return ((x % size) + size) % size; }
+
+  function dist(a, b) {
+    var dx = a.x - b.x, dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 
   /* ------------------------------------------------------------------------
      1. Constellation
@@ -52,20 +62,55 @@
   var POINTER_REACH  = 190;    // px: nodes this close to the pointer light up
   var AREA_PER_NODE  = 11000;  // px²: same density on every screen size
   var MAX_SPEED      = 14;     // px per second of drift
+  var LINE_SHADES    = 8;      // line fades are drawn in this many steps,
+                               // one path per step (much cheaper on phones)
+
+  // Touch-first screens (mostly phones) redraw at most about 30 times a
+  // second. Motion is timed, so the drift looks the same everywhere.
+  var FRAME_MS = window.matchMedia &&
+    window.matchMedia('(pointer: coarse)').matches ? 1000 / 30 : 0;
 
   var nodeRgb = themeRgb('--accent', '77, 155, 255');
   var litRgb = themeRgb('--accent-2', '111, 227, 255');
   var depthDrift = reduceMotion ? 0 : themeNumber('--depth-drift', 0.1);
 
+  // Stroke styles per fade step, from faintest to strongest.
+  function shadeStyles(rgb, maxAlpha) {
+    var styles = [];
+    for (var s = 0; s < LINE_SHADES; s++) styles.push(rgba(rgb, (s + 0.5) / LINE_SHADES * maxAlpha));
+    return styles;
+  }
+  var linkStyles = shadeStyles(nodeRgb, 0.4);
+  var pointerStyles = shadeStyles(litRgb, 0.7);
+
+  // The fade step for a line of length d that fades out at reach.
+  function shadeOf(d, reach) {
+    return Math.min(LINE_SHADES - 1, Math.floor((1 - d / reach) * LINE_SHADES));
+  }
+
   var nodes = [];
-  var width = 0, height = 0;
+  var width = 0, height = 0, pixelRatio = 0;
   var pointer = null;          // {x, y} in viewport px, or null
   var frameId = 0, lastTime = 0;
 
+  // Fits the canvas to its box; returns true if it changed (which clears it).
   function sizeCanvas() {
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    // A hidden frame or print layout can report 0; keep the last real size.
+    if (!w || !h || (w === width && h === height && dpr === pixelRatio)) return false;
+
+    // Existing nodes keep their place, scaled to the new size, so a phone's
+    // toolbar sliding in or out doesn't reshuffle the field.
+    if (width) {
+      for (var i = 0; i < nodes.length; i++) {
+        nodes[i].x *= w / width;
+        nodes[i].y *= h / height;
+      }
+    }
+    width = w;
+    height = h;
+    pixelRatio = dpr;
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -80,30 +125,53 @@
       });
     }
     nodes.length = wanted;
-    for (var i = 0; i < nodes.length; i++) {
-      nodes[i].x %= width;
-      nodes[i].y %= height;
-    }
+    return true;
   }
 
   function moveNodes(seconds) {
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i];
-      n.x = (n.x + n.vx * seconds + width) % width;
-      n.y = (n.y + n.vy * seconds + height) % height;
+      n.x = wrap(n.x + n.vx * seconds, width);
+      n.y = wrap(n.y + n.vy * seconds, height);
     }
+  }
+
+  // segments: one flat [x1, y1, x2, y2, ...] list per fade step.
+  function strokeShades(segments, styles) {
+    for (var s = 0; s < LINE_SHADES; s++) {
+      var seg = segments[s];
+      if (!seg.length) continue;
+      ctx.strokeStyle = styles[s];
+      ctx.beginPath();
+      for (var k = 0; k < seg.length; k += 4) {
+        ctx.moveTo(seg[k], seg[k + 1]);
+        ctx.lineTo(seg[k + 2], seg[k + 3]);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function fillDots(points, radius, style) {
+    if (!points.length) return;
+    ctx.fillStyle = style;
+    ctx.beginPath();
+    points.forEach(function (p) {
+      ctx.moveTo(p.x + radius, p.y);
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    });
+    ctx.fill();
   }
 
   function drawConstellation() {
     ctx.clearRect(0, 0, width, height);
+    if (!nodes.length) return;
 
-    // Depth: the field slides up at a fraction of the scroll and wraps.
-    var offset = (window.scrollY * depthDrift) % height;
+    // Depth: the field slides up at a fraction of the scroll and wraps
+    // (scrollY can be negative during an iOS overscroll bounce).
+    var offset = wrap(window.scrollY * depthDrift, height);
     var points = new Array(nodes.length);
     for (var i = 0; i < nodes.length; i++) {
-      var y = nodes[i].y - offset;
-      if (y < 0) y += height;
-      points[i] = { x: nodes[i].x, y: y };
+      points[i] = { x: nodes[i].x, y: wrap(nodes[i].y - offset, height) };
     }
 
     // Bucket points into a grid of LINK_DISTANCE cells so each one is only
@@ -115,7 +183,9 @@
       (cells[key] || (cells[key] = [])).push(idx);
     });
 
-    ctx.lineWidth = 1;
+    var links = [], toPointer = [];
+    for (var s = 0; s < LINE_SHADES; s++) { links.push([]); toPointer.push([]); }
+
     points.forEach(function (p, idx) {
       var cx = Math.floor(p.x / LINK_DISTANCE), cy = Math.floor(p.y / LINK_DISTANCE);
       for (var dy = -1; dy <= 1; dy++) {
@@ -126,44 +196,38 @@
             var j = bucket[k];
             if (j <= idx) continue;
             var q = points[j];
-            var d = Math.sqrt((p.x - q.x) * (p.x - q.x) + (p.y - q.y) * (p.y - q.y));
-            if (d >= LINK_DISTANCE) continue;
-            ctx.strokeStyle = 'rgba(' + nodeRgb + ', ' + ((1 - d / LINK_DISTANCE) * 0.4).toFixed(3) + ')';
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.stroke();
+            var d = dist(p, q);
+            if (d < LINK_DISTANCE) links[shadeOf(d, LINK_DISTANCE)].push(p.x, p.y, q.x, q.y);
           }
         }
       }
     });
 
+    var plain = [], lit = [];
     points.forEach(function (p) {
-      var lit = false;
-      if (pointer) {
-        var d = Math.sqrt((p.x - pointer.x) * (p.x - pointer.x) + (p.y - pointer.y) * (p.y - pointer.y));
-        if (d < POINTER_REACH) {
-          lit = true;
-          ctx.strokeStyle = 'rgba(' + litRgb + ', ' + ((1 - d / POINTER_REACH) * 0.7).toFixed(3) + ')';
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(pointer.x, pointer.y);
-          ctx.stroke();
-        }
+      var d = pointer ? dist(p, pointer) : Infinity;
+      if (d < POINTER_REACH) {
+        lit.push(p);
+        toPointer[shadeOf(d, POINTER_REACH)].push(p.x, p.y, pointer.x, pointer.y);
+      } else {
+        plain.push(p);
       }
-      ctx.fillStyle = lit ? 'rgba(' + litRgb + ', 1)' : 'rgba(' + nodeRgb + ', 0.85)';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, lit ? 2.6 : 2, 0, Math.PI * 2);
-      ctx.fill();
     });
+
+    ctx.lineWidth = 1;
+    strokeShades(links, linkStyles);
+    strokeShades(toPointer, pointerStyles);
+    fillDots(plain, 2, rgba(nodeRgb, 0.85));
+    fillDots(lit, 2.6, rgba(litRgb, 1));
   }
 
   function animate(time) {
+    frameId = requestAnimationFrame(animate);
+    if (lastTime && time - lastTime < FRAME_MS * 0.9) return;
     var seconds = lastTime ? Math.min((time - lastTime) / 1000, 0.1) : 0;
     lastTime = time;
     moveNodes(seconds);
     drawConstellation();
-    frameId = requestAnimationFrame(animate);
   }
 
   function startAnimating() {
@@ -189,7 +253,7 @@
       window.addEventListener('pointermove', function (e) {
         if (e.pointerType !== 'touch') pointer = { x: e.clientX, y: e.clientY };
       }, { passive: true });
-      document.addEventListener('mouseleave', function () { pointer = null; });
+      root.addEventListener('mouseleave', function () { pointer = null; });
       ['touchstart', 'touchmove'].forEach(function (type) {
         window.addEventListener(type, function (e) {
           var t = e.touches[0];
@@ -219,27 +283,33 @@
   var REVEAL_DONE = 1 - REVEAL_SPAN;  // ending when the top reaches 65% of it
   var ACTIVE_LINE = 0.4;       // a Section is active once its top passes 40%
 
-  var revealed = Array.prototype.slice.call(document.querySelectorAll('.panel, .section-title'));
+  function all(selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); }
+
+  var revealTargets = all('.panel, .section-title');
+  var sections = all('.hero, .section');
   var timeline = document.querySelector('.timeline');
   var timelineRoles = timeline ? timeline.querySelectorAll('.panel') : [];
-  var navLinks = Array.prototype.slice.call(document.querySelectorAll('.topbar nav a[href^="#"]'));
+  var inTimeline = revealTargets.map(function (el) { return !!timeline && timeline.contains(el); });
+  var navLinks = all('.topbar nav a[href^="#"]');
   var navSections = navLinks.map(function (a) { return document.querySelector(a.getAttribute('href')); });
   var topbar = document.querySelector('.topbar');
 
-  var view = 0, maxScroll = 0, revealTops = [], sectionTops = [];
+  var viewHeight = 0, maxScroll = 0, revealTops = [], sectionTops = [];
   var timelineStart = 0, timelineEnd = 0;
   var updateQueued = false;
 
   function measure() {
-    view = window.innerHeight;
-    maxScroll = Math.max(0, root.scrollHeight - view);
-    revealTops = revealed.map(pageTop);
+    // The layout viewport's height: unlike innerHeight it stays put while a
+    // phone's toolbars slide in and out, so no threshold jumps mid-scroll.
+    viewHeight = root.clientHeight;
+    maxScroll = Math.max(0, root.scrollHeight - window.innerHeight);
+    revealTops = revealTargets.map(pageTop);
     sectionTops = navSections.map(function (s) { return s ? pageTop(s) : Infinity; });
     if (timelineRoles.length) {
       // The line starts drawing as the Timeline's top crosses 65% of the
       // viewport and is complete when the last role's top gets there.
-      timelineStart = pageTop(timeline) - REVEAL_DONE * view;
-      timelineEnd = pageTop(timelineRoles[timelineRoles.length - 1]) - REVEAL_DONE * view;
+      timelineStart = pageTop(timeline) - REVEAL_DONE * viewHeight;
+      timelineEnd = pageTop(timelineRoles[timelineRoles.length - 1]) - REVEAL_DONE * viewHeight;
     }
   }
 
@@ -252,17 +322,23 @@
     return clamp01((y - start) / (end - start));
   }
 
-  // A Section jumped to from a link arrives fully revealed, even Panels still
-  // low on the screen. Each one stays held until it has been on screen and
-  // then scrolled back below it (or would be fully revealed anyway); from
-  // then on it follows the scroll again.
-  var HELD = 1, HELD_AND_SEEN = 2;
-  var held = revealed.map(function () { return 0; });
+  // A Section jumped to from a link arrives fully revealed: the Panels and
+  // heading whose tops will be on screen once it lands are held (the rest
+  // still Reveal as they come up). Each one stays held until it has been on
+  // screen and then scrolled back below it (or would be fully revealed
+  // anyway); from then on it follows the scroll again. Jumps to anything
+  // but a Section, like the skip link to <main>, hold nothing.
+  var FREE = 0, HELD = 1, HELD_AND_SEEN = 2;
+  var held = revealTargets.map(function () { return FREE; });
 
   function holdSection(hash) {
     var target = hash && hash.length > 1 && document.getElementById(hash.slice(1));
-    if (!target) return;
-    revealed.forEach(function (el, i) { held[i] = target.contains(el) ? HELD : 0; });
+    if (sections.indexOf(target) < 0) return;
+    var landing = pageTop(target) - (parseFloat(rootStyle.scrollPaddingTop) || 0);
+    landing = Math.min(Math.max(0, landing), maxScroll);
+    revealTargets.forEach(function (el, i) {
+      held[i] = target.contains(el) && revealTops[i] < landing + viewHeight ? HELD : FREE;
+    });
     queueUpdate();
   }
 
@@ -271,19 +347,25 @@
     var y = window.scrollY;
 
     if (!reduceMotion) {
-      for (var i = 0; i < revealed.length; i++) {
+      var roleHeld = false;
+      for (var i = 0; i < revealTargets.length; i++) {
         // Starts with the top at the viewport's bottom edge, ends at 65%.
-        var p = progress(y, revealTops[i] - view, revealTops[i] - REVEAL_DONE * view);
+        var p = progress(y, revealTops[i] - viewHeight, revealTops[i] - REVEAL_DONE * viewHeight);
         if (held[i]) {
-          if (p >= 1) held[i] = 0;
-          else if (revealTops[i] - y < view) held[i] = HELD_AND_SEEN;
-          else if (held[i] === HELD_AND_SEEN) held[i] = 0;
-          if (held[i]) p = 1;
+          if (p >= 1) held[i] = FREE;
+          else if (revealTops[i] - y < viewHeight) held[i] = HELD_AND_SEEN;
+          else if (held[i] === HELD_AND_SEEN) held[i] = FREE;
+          if (held[i]) {
+            p = 1;
+            if (inTimeline[i]) roleHeld = true;
+          }
         }
-        revealed[i].style.setProperty('--reveal', p.toFixed(4));
+        revealTargets[i].style.setProperty('--reveal', p.toFixed(4));
       }
       if (timelineRoles.length) {
-        timeline.style.setProperty('--drawn', progress(y, timelineStart, timelineEnd).toFixed(4));
+        // While a role is held after a jump, the line beside it is drawn too.
+        var drawn = roleHeld ? 1 : progress(y, timelineStart, timelineEnd);
+        timeline.style.setProperty('--drawn', drawn.toFixed(4));
       }
     }
 
@@ -292,7 +374,7 @@
       active = navLinks.length - 1;
     } else {
       for (var s = 0; s < sectionTops.length; s++) {
-        if (sectionTops[s] - y <= ACTIVE_LINE * view) active = s;
+        if (sectionTops[s] - y <= ACTIVE_LINE * viewHeight) active = s;
       }
     }
     navLinks.forEach(function (a, idx) {
@@ -309,13 +391,13 @@
     requestAnimationFrame(update);
   }
 
+  // Also refits the canvas: the window can be resized, moved to a screen
+  // with another pixel ratio, or gain a scrollbar. Resizing clears the
+  // canvas, so a still (reduced-motion) frame is drawn again.
   function relayout() {
     measure();
     update();
-    if (ctx && reduceMotion && (canvas.clientWidth !== width || canvas.clientHeight !== height)) {
-      sizeCanvas();
-      drawConstellation();
-    }
+    if (ctx && sizeCanvas() && reduceMotion) drawConstellation();
   }
 
   measure();
@@ -330,10 +412,7 @@
     var link = e.target.closest && e.target.closest('a[href^="#"]');
     if (link) holdSection(link.getAttribute('href'));
   });
-  window.addEventListener('resize', function () {
-    if (ctx && !reduceMotion) sizeCanvas();
-    relayout();
-  });
+  window.addEventListener('resize', relayout);
   // Web fonts and late layout shifts move everything; re-measure when the
   // page's height changes.
   if (window.ResizeObserver) new ResizeObserver(relayout).observe(document.body);
