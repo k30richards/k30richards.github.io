@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Immersive redesign tests</title>
+<!--
+  Acceptance tests for #3: the immersive visual redesign (Constellation,
+  Panels, Reveal, Timeline, Active Section, progress line, copy).
+
+  Dependency-free: open this page in a browser window that is VISIBLE on
+  screen (a hidden tab renders no animation frames), served over HTTP from the
+  repo root, e.g.
+      python -m http.server 8792 --bind 127.0.0.1
+      http://127.0.0.1:8792/tests/immersive.html
+  Add ?post=1 to also POST the results as JSON to /__results when finished, so
+  a command-line run can read them back.
+
+  The page loads ../index.html into one iframe at a time, sized to each test
+  viewport, scrolls it, and observes it from outside only: computed opacity
+  and transform, layout geometry, visible text, hit-testing, canvas pixels and
+  document widths. Results go to #results (one PASS / FAIL / SKIP line per
+  test, then a SUMMARY line), to window.__testResults, and document.title
+  becomes DONE when finished.
+
+  Tests prefixed guard_ pin behavior the page already has and must keep.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 13px/1.4 ui-monospace, Consolas, monospace; background: #fff; color: #111; }
+  #stage { position: fixed; top: 0; left: 0; z-index: 0; }
+  #stage iframe { border: 0; display: block; background: #fff; }
+  #results {
+    position: fixed; right: 0; bottom: 0; z-index: 1; margin: 0;
+    max-width: 60vw; max-height: 45vh; overflow: auto; padding: 8px;
+    background: rgba(255,255,255,.92); color: #111; border: 1px solid #999;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<pre id="results"></pre>
+<script>
+(async function () {
+  'use strict';
+
+  // ---------------------------------------------------------------- results
+  const results = { passed: 0, failed: 0, skipped: 0, lines: [] };
+  window.__testResults = results;
+  const out = document.getElementById('results');
+  function record(line) {
+    results.lines.push(line);
+    out.textContent += line + '\n';
+  }
+  function pass(name) { results.passed++; record('PASS ' + name); }
+  function fail(name, why) { results.failed++; record('FAIL ' + name + ': ' + why); }
+  function skip(name, why) { results.skipped++; record('SKIP ' + name + ': ' + why); }
+
+  // ------------------------------------------------------------- tolerances
+  // Fully revealed: opacity and identity-matrix entries within 1e-4 (float
+  // noise at the ends of the Reveal range).
+  const EPS = 1e-4;
+  // Mid-Reveal: opacity strictly inside (0.001, 0.999) and displaced downward
+  // by more than 0.5px (sub-pixel noise).
+  const MID_OP_MIN = 0.001, MID_OP_MAX = 0.999, MID_DY = 0.5;
+  // Reversibility: opacity within 0.01 (scroll positions round to device px).
+  const REVERSE_TOL = 0.01;
+  // Geometry: 1px for sub-pixel rounding of rects.
+  const PX = 1;
+  // Band-edge offset: positions next to a band edge are taken 2px inside it
+  // (scroll positions round to device pixels).
+  const BAND_EDGE = 2;
+  // Timeline drawn fraction: full >= 0.995, partial strictly in (0.02, 0.98)
+  // (rounding at the ends of the line).
+  const LINE_FULL = 0.995, LINE_MID_MIN = 0.02, LINE_MID_MAX = 0.98;
+  // Progress line: <= 0.01 at top, >= 0.99 at bottom, 0.4-0.6 halfway
+  // (rounding, and the line may ease slightly; #3 says it is proportional).
+  const PROG_EMPTY = 0.01, PROG_FULL = 0.99, PROG_HALF_MIN = 0.4, PROG_HALF_MAX = 0.6;
+  // Constellation animation: two reads 600ms apart. #3 says the field drifts
+  // continuously, so 600ms spans many animation frames.
+  const PIXEL_GAP_MS = 600;
+  // WCAG AA body text (#3 Implementation Decisions "Panels").
+  const MIN_CONTRAST = 4.5;
+
+  // ------------------------------------------------------------------ waits
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // At least two timer ticks (~100ms) so scroll-linked state updates.
+  async function settle() { await sleep(50); await sleep(50); }
+
+  // ---------------------------------------------------------- copy literals
+  // Typographic characters as given in #3: U+2019 right quote, U+2013 en
+  // dash, U+2014 em dash.
+  const BIO = [
+    'I completed a combined B.S. and M.S. in Data Science at Worcester Polytechnic Institute in May 2026. Between an internship, undergraduate research, and graduate project work, my attention keeps returning to the same question: what does it take to move a model out of a notebook and into something an organization can depend on?',
+    'My skills have been pointed at fairly different problems: enterprise data engineering and workflow automation, applied deep learning research, forecasting in noisy domains like equity markets and medical imaging, and deployment under the tight constraints of embedded hardware.',
+    'Throughout, I benchmark competing options before committing to one, and I treat the system surrounding a model as no less important than the model itself.',
+  ];
+  const EDUCATION = 'B.S./M.S. Data Science, WPI ’26';
+  const STATUS = 'Available now. Open to full- and part-time roles.';
+  const SEEKING = 'Data science, ML, and applied AI roles in Greater Boston. Also open to consulting, technical sales, and part-time work where that background applies.';
+  const HERO_CHIPS = [EDUCATION, 'Open to work', 'Boston, MA'];
+  const HERO_INTRO = 'I design and deploy machine learning systems built to hold up in production — applied LLM tooling, predictive models, and the data infrastructure that sustains them.';
+  const TOOLKIT = [
+    ['Modeling', ['PyTorch', 'TensorFlow', 'Scikit-learn']],
+    ['Data', ['Python', 'Pandas', 'NumPy', 'SQL']],
+    ['Cloud & reporting', ['Snowflake', 'Azure', 'Tableau']],
+    ['LLMs', ['Automation', 'Prompt design', 'Extraction from unstructured sources']],
+  ];
+  const LOCUST_DATES = 'Jun 2026 – Aug 2026';
+  // Role paragraphs and project descriptions: word for word from index.html
+  // before #3 (#3: "Each role keeps ... word for word"), except the sponsor
+  // wording #3 gives for the compensation engine.
+  const ROLE_TEXT = {
+    ai_intern: "Designed and built automation tools that streamline the firm's research and data workflows, including a pipeline that pairs web scraping with large language models to replace a fully manual CRM contact research process. Also evaluated emerging AI and CRM platforms to help guide the firm's broader technology strategy.",
+    research_associate: "Evaluated a range of large language model prompting strategies for classifying medical images, benchmarking each against standard performance metrics to identify the most reliable approach. Presented the results at WPI's NSF REU research symposium.",
+  };
+  const PROJECT_TEXT = {
+    compensation_engine: "Partnered with a medical device company sponsor's Urology Compensation Strategy team to modernize a manual, spreadsheet-based compensation process into a centralized, rule-driven system. I helped design the underlying data architecture and build a business-facing interface for running and comparing plan scenarios.",
+    smart_lock: 'An embedded system on a Raspberry Pi that uses audio and visual recognition to enable accessible, touch-free door unlocking. Most of the work went into compressing and optimizing the models so they could run efficiently on very limited hardware.',
+    stock_movement: 'A hybrid deep learning model that combines financial news sentiment with historical price data to predict stock price movement, exploring whether fusing multiple data types beats either signal on its own.',
+  };
+  const SOURCE_HREFS = ['https://github.com/TC4451/Wake_word_sign_digits', 'https://github.com/atiwari18/BuffERT'];
+  const CONTACT_HREFS = {
+    email: 'mailto:k30richards@gmail.com',
+    linkedin: 'https://www.linkedin.com/in/kdrichards30',
+    github: 'https://github.com/k30richards',
+  };
+  // Strings #3 removes. "Present" is matched as a whole word: the Research
+  // Associate paragraph keeps "Presented" word for word (#3).
+  const ABSENT = [
+    ['that_toolkit', /That toolkit/],
+    ['python_anchors_the_technical_side', /Python anchors the technical side/],
+    ['present', /\bPresent\b/],
+    ['boston_scientific', /Boston Scientific/],
+    ['built_by_hand_credit', /Built by hand/],
+  ];
+
+  // ------------------------------------------------------------- the frame
+  const stage = document.getElementById('stage');
+
+  // Replaces window.matchMedia inside the frame so prefers-reduced-motion
+  // queries report the OS setting "reduce". Serialized into the frame.
+  function reducedMotionShim() {
+    var orig = window.matchMedia.bind(window);
+    window.matchMedia = function (q) {
+      var s = String(q), forced = null;
+      if (/prefers-reduced-motion\s*:\s*reduce/.test(s)) forced = true;
+      else if (/prefers-reduced-motion\s*:\s*no-preference/.test(s)) forced = false;
+      else if (/prefers-reduced-motion\s*\)/.test(s)) forced = true; // boolean form
+      var real = orig(q);
+      if (forced === null) return real;
+      if (/^\s*not\b/.test(s)) forced = !forced;
+      var noop = function () {};
+      return {
+        matches: forced, media: real.media, onchange: null,
+        addEventListener: noop, removeEventListener: noop,
+        addListener: noop, removeListener: noop,
+        dispatchEvent: function () { return true; },
+      };
+    };
+  }
+
+  // Applies the stylesheet half of the reduced-motion emulation: rules under
+  // @media (prefers-reduced-motion: reduce) start applying, so their CSS text
+  // is appended unconditionally; rules that only apply when motion is NOT
+  // reduced (no-preference, or not (... reduce)) are deleted from this
+  // frame's sheets only.
+  function applyReducedMotionCss(doc) {
+    const copied = [];
+    function isMotionQuery(text) { return /prefers-reduced-motion/.test(text); }
+    function meansNoPreference(text) {
+      return /no-preference/.test(text) || /not\s*\(\s*prefers-reduced-motion/.test(text);
+    }
+    function walk(group) {
+      const rules = group.cssRules;
+      for (let i = rules.length - 1; i >= 0; i--) {
+        const r = rules[i];
+        if (r instanceof doc.defaultView.CSSMediaRule && isMotionQuery(r.conditionText || r.media.mediaText)) {
+          const text = r.conditionText || r.media.mediaText;
+          if (meansNoPreference(text)) {
+            group.deleteRule(i);
+          } else {
+            const inner = [];
+            for (const c of r.cssRules) inner.push(c.cssText);
+            copied.unshift(inner.join('\n'));
+          }
+        } else if (r.cssRules) {
+          walk(r);
+        }
+      }
+    }
+    for (const sheet of doc.styleSheets) {
+      let rules = null;
+      try { rules = sheet.cssRules; } catch (e) { continue; } // cross-origin (web fonts)
+      if (rules) walk(sheet);
+    }
+    const s = doc.createElement('style');
+    s.textContent = copied.join('\n');
+    doc.head.appendChild(s);
+  }
+
+  // Opens the site in an iframe of exactly w x h CSS px.
+  // opts.mode: 'normal' (default), 'reduced' (OS reduced-motion setting
+  // emulated) or 'noscript' (scripts disabled by the sandbox).
+  async function openFrame(w, h, opts) {
+    opts = opts || {};
+    const mode = opts.mode || 'normal';
+    stage.textContent = '';
+    const frame = document.createElement('iframe');
+    frame.style.width = w + 'px';
+    frame.style.height = h + 'px';
+    const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
+    if (mode === 'reduced') {
+      // Why emulate: the in-app browser running these tests cannot toggle the
+      // OS reduced-motion setting, and that setting is a system boundary, not
+      // page code. The page source is loaded as srcdoc with, at the very start
+      // of <head>, a <base> (so relative assets resolve from the repo root)
+      // and a script that makes matchMedia report "reduce" before any page
+      // script runs. The CSS half is applied after load.
+      const html = await (await fetch('../index.html', { cache: 'no-store' })).text();
+      const inject = '<base href="../"><script>(' + reducedMotionShim.toString() + ')();<\/script>';
+      frame.srcdoc = html.replace(/<head(\s[^>]*)?>/i, m => m + inject);
+    } else {
+      if (mode === 'noscript') frame.setAttribute('sandbox', 'allow-same-origin');
+      frame.src = '../index.html';
+    }
+    stage.appendChild(frame);
+    await loaded;
+    const win = frame.contentWindow;
+    const doc = frame.contentDocument;
+    await doc.fonts.ready;
+    if (mode === 'reduced') applyReducedMotionCss(doc);
+    await settle();
+    await settle();
+    const ctx = { frame, win, doc, W: w, V: h, label: w + 'x' + h, mode };
+    for (const id of ['top', 'about', 'experience', 'work', 'contact']) {
+      if (!doc.getElementById(id)) throw new Error('Section #' + id + ' not found in index.html');
+    }
+    ctx.max = await maxScroll(ctx);
+    return ctx;
+  }
+
+  async function scrollToY(ctx, y) {
+    ctx.win.scrollTo({ top: y, left: 0, behavior: 'instant' });
+    await settle();
+    return ctx.win.scrollY;
+  }
+
+  async function maxScroll(ctx) {
+    const y = await scrollToY(ctx, 1e7);
+    await scrollToY(ctx, 0);
+    return y;
+  }
+
+  // Layout geometry that ignores transforms: offsetTop summed up the
+  // offsetParent chain (getBoundingClientRect would include the Reveal
+  // transform under test).
+  function docTop(el) {
+    let t = 0;
+    for (let e = el; e; e = e.offsetParent) t += e.offsetTop;
+    return t;
+  }
+  function layoutTop(ctx, el) { return docTop(el) - ctx.win.scrollY; }
+
+  // Scrolls so el's layout top sits at viewport y = T, clamped to [0, max].
+  // Returns the wanted scrollY and the layout top actually reached.
+  async function placeTop(ctx, el, T) {
+    const want = docTop(el) - T;
+    await scrollToY(ctx, Math.min(Math.max(want, 0), ctx.max));
+    return { want, top: layoutTop(ctx, el) };
+  }
+  function unreachable(ctx, what, p, bandText) {
+    return 'unreachable: ' + what + ' wanted scrollY ' + p.want.toFixed(1) + ', clamped to ' +
+      ctx.win.scrollY.toFixed(1) + ' (max ' + ctx.max.toFixed(1) + '); its top is at ' +
+      p.top.toFixed(1) + ', outside the band ' + bandText + ' (V=' + ctx.V + ')';
+  }
+
+  // ---------------------------------------------------------------- helpers
+  function norm(s) { return String(s).replace(/\s+/g, ' ').trim(); }
+  function describeEl(el) {
+    if (!el) return 'null';
+    let s = el.tagName + (el.id ? '#' + el.id : '');
+    const c = el.getAttribute && el.getAttribute('class');
+    if (c) s += '.' + c.trim().split(/\s+/).join('.');
+    return s;
+  }
+  function byText(doc, sel, text) {
+    return Array.from(doc.querySelectorAll(sel)).find(e => norm(e.textContent).includes(text)) || null;
+  }
+
+  // ------------------------------------------------------------ the Panels
+  // Each content piece #3 puts in its own Panel, found by its content, then
+  // the Panel is its closest .panel ancestor inside the right Section.
+  function panelOf(doc, node, sectionId, what) {
+    if (!node) return { el: null, why: what + ' not found' };
+    const p = node.closest('.panel');
+    if (!p) return { el: null, why: what + ' has no .panel ancestor' };
+    if (!doc.getElementById(sectionId).contains(p)) return { el: null, why: what + "'s .panel is not inside #" + sectionId };
+    return { el: p, why: null };
+  }
+  const PANELS = [
+    { key: 'about_bio_panel', section: 'about', find: d => panelOf(d,
+        Array.from(d.querySelectorAll('#about p')).find(p => norm(p.textContent).startsWith('I completed')) || null,
+        'about', 'bio paragraph starting "I completed"') },
+    { key: 'about_facts_panel', section: 'about', find: d => panelOf(d, d.querySelector('#about dl.facts'), 'about', '#about dl.facts') },
+    { key: 'about_toolkit_panel', section: 'about', find: d => {
+        const t = d.querySelector('#about .toolkit');
+        if (!t) return { el: null, why: '#about .toolkit not found' };
+        if (!t.classList.contains('panel')) return { el: null, why: '#about .toolkit is not a .panel' };
+        return { el: t, why: null };
+      } },
+    { key: 'experience_ai_intern_panel', section: 'experience', find: d => panelOf(d, byText(d, '#experience h3', 'AI Intern'), 'experience', 'role title "AI Intern"') },
+    { key: 'experience_research_associate_panel', section: 'experience', find: d => panelOf(d, byText(d, '#experience h3', 'Research Associate'), 'experience', 'role title "Research Associate"') },
+    { key: 'projects_compensation_engine_panel', section: 'work', find: d => panelOf(d, byText(d, '#work h3', 'Unified Compensation Modeling Engine'), 'work', 'project title "Unified Compensation Modeling Engine"') },
+    { key: 'projects_smart_lock_panel', section: 'work', find: d => panelOf(d, byText(d, '#work h3', 'Edge-Based Smart Lock System'), 'work', 'project title "Edge-Based Smart Lock System"') },
+    { key: 'projects_stock_movement_panel', section: 'work', find: d => panelOf(d, byText(d, '#work h3', 'Multimodal Stock Movement Prediction'), 'work', 'project title "Multimodal Stock Movement Prediction"') },
+    { key: 'contact_panel', section: 'contact', find: d => panelOf(d, d.querySelector('#contact a[href="' + CONTACT_HREFS.email + '"]'), 'contact', 'email link') },
+  ];
+  // Returns { els } when every listed Panel is found, else { fail }.
+  function requirePanels(ctx, specs) {
+    const missing = [], els = [];
+    for (const s of specs) {
+      const f = s.find(ctx.doc);
+      if (f.el) els.push(f.el); else missing.push(s.key + ' (' + f.why + ')');
+    }
+    return missing.length ? { fail: 'Panel missing: ' + missing.join('; ') } : { els };
+  }
+  // Every Reveal target: the located Panels, every .panel and every
+  // .section-title (#3: Section headings follow the same rule).
+  function revealTargets(ctx) {
+    return Array.from(ctx.doc.querySelectorAll('.panel, .section-title'));
+  }
+
+  // ---------------------------------------------------------- Reveal state
+  function matrixOf(transform) {
+    return (!transform || transform === 'none') ? new DOMMatrix() : new DOMMatrix(transform);
+  }
+  function revealState(ctx, el) {
+    const cs = ctx.win.getComputedStyle(el);
+    const m = matrixOf(cs.transform);
+    return { transform: cs.transform, m, opacity: parseFloat(cs.opacity), dy: m.m42 };
+  }
+  function isIdentity(m) {
+    const a = m.toFloat64Array();
+    const id = new DOMMatrix().toFloat64Array();
+    for (let i = 0; i < 16; i++) if (Math.abs(a[i] - id[i]) > EPS) return false;
+    return true;
+  }
+  function isFullyRevealed(s) { return Math.abs(s.opacity - 1) <= EPS && isIdentity(s.m); }
+  function isMidReveal(s) { return s.opacity > MID_OP_MIN && s.opacity < MID_OP_MAX && s.dy > MID_DY; }
+  function describe(s) { return 'opacity=' + s.opacity + ', transform=' + s.transform; }
+  function notRevealed(ctx, els) {
+    const bad = [];
+    for (const el of els) {
+      const s = revealState(ctx, el);
+      if (!isFullyRevealed(s)) bad.push(describeEl(el) + ' "' + norm(el.textContent).slice(0, 30) + '" (' + describe(s) + ')');
+    }
+    return bad;
+  }
+
+  // ----------------------------------------------------------- assertions
+  // Each runs one logical assertion; exceptions become FAILs.
+  async function check(name, fn) {
+    try {
+      const r = await fn();
+      if (r && r.skip) skip(name, r.skip);
+      else if (r && r.fail) fail(name, r.fail);
+      else pass(name);
+    } catch (e) {
+      fail(name, 'error: ' + (e && e.stack || e));
+    }
+  }
+
+  // ======================================================= copy & structure
+  async function contentTests() {
+    const ctx = await openFrame(1280, 800);
+    const at = '@' + ctx.label;
+    const d = ctx.doc;
+    const sec = id => d.getElementById(id);
+
+    // --- Panels contain all content (#3, user story 8)
+    await check('about_bio_paragraphs_inside_panels' + at, () => {
+      const ps = Array.from(sec('about').querySelectorAll('p')).filter(p => !p.closest('dl.facts, .toolkit'));
+      if (!ps.length) return { fail: 'no bio paragraphs in #about' };
+      const out = ps.filter(p => !p.closest('.panel'));
+      return out.length ? { fail: out.length + ' of ' + ps.length + ' #about paragraphs have no .panel ancestor, e.g. "' + norm(out[0].textContent).slice(0, 40) + '"' } : null;
+    });
+    await check('about_facts_inside_a_panel' + at, () => {
+      const f = d.querySelector('#about dl.facts');
+      if (!f) return { fail: '#about dl.facts not found' };
+      return f.closest('.panel') ? null : { fail: '#about dl.facts has no .panel ancestor' };
+    });
+    await check('about_toolkit_is_a_panel' + at, () => {
+      const t = d.querySelector('#about .toolkit');
+      if (!t) return { fail: '#about .toolkit not found' };
+      return t.closest('.panel') ? null : { fail: '#about .toolkit has no .panel ancestor and is not a .panel' };
+    });
+    await check('experience_role_titles_inside_panels' + at, () => {
+      const hs = Array.from(sec('experience').querySelectorAll('h3'));
+      if (!hs.length) return { fail: 'no role titles (h3) in #experience' };
+      const out = hs.filter(h => !h.closest('.panel'));
+      return out.length ? { fail: 'role titles without a .panel ancestor: ' + out.map(h => '"' + norm(h.textContent) + '"').join(', ') } : null;
+    });
+    await check('projects_titles_inside_panels' + at, () => {
+      const hs = Array.from(sec('work').querySelectorAll('h3'));
+      if (!hs.length) return { fail: 'no project titles (h3) in #work' };
+      const out = hs.filter(h => !h.closest('.panel'));
+      return out.length ? { fail: 'project titles without a .panel ancestor: ' + out.map(h => '"' + norm(h.textContent) + '"').join(', ') } : null;
+    });
+    await check('contact_email_link_inside_a_panel' + at, () => {
+      const a = d.querySelector('#contact a[href="' + CONTACT_HREFS.email + '"]');
+      if (!a) return { fail: 'no ' + CONTACT_HREFS.email + ' link in #contact' };
+      return a.closest('.panel') ? null : { fail: 'the email link has no .panel ancestor' };
+    });
+    for (const [label, id] of [['about', 'about'], ['experience', 'experience'], ['projects', 'work'], ['contact', 'contact']]) {
+      await check(label + '_section_has_no_text_outside_panels_but_its_heading' + at, () => {
+        const root = sec(id);
+        const walker = d.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const stray = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!n.nodeValue.trim()) continue;
+          const p = n.parentElement;
+          if (p.closest('script, style, template, noscript')) continue;
+          if (p.closest('.panel') || p.closest('.section-title')) continue;
+          stray.push('"' + norm(n.nodeValue).slice(0, 40) + '" in ' + describeEl(p));
+        }
+        return stray.length ? { fail: stray.length + ' text run(s) outside any .panel: ' + stray.slice(0, 4).join('; ') } : null;
+      });
+    }
+    // Separate Panels (#3, user stories 8, 18, 22).
+    await check('about_bio_facts_and_toolkit_are_separate_panels' + at, () => {
+      const r = requirePanels(ctx, PANELS.filter(p => p.section === 'about'));
+      if (r.fail) return r;
+      return new Set(r.els).size === 3 ? null : { fail: 'bio, facts and Toolkit share a .panel' };
+    });
+    await check('experience_each_role_in_its_own_panel' + at, () => {
+      const r = requirePanels(ctx, PANELS.filter(p => p.section === 'experience'));
+      if (r.fail) return r;
+      return new Set(r.els).size === r.els.length ? null : { fail: 'roles share a .panel' };
+    });
+    await check('projects_each_project_in_its_own_panel' + at, () => {
+      const r = requirePanels(ctx, PANELS.filter(p => p.section === 'work'));
+      if (r.fail) return r;
+      return new Set(r.els).size === r.els.length ? null : { fail: 'projects share a .panel' };
+    });
+
+    // --- Section headings (#3 "Section order and numbering")
+    for (const [label, id, num, word, guard] of [
+      ['about', 'about', '01', 'About', true],
+      ['experience', 'experience', '02', 'Experience', true],
+      ['projects', 'work', '03', 'Projects', true],
+      ['contact', 'contact', '04', 'Contact', false],
+    ]) {
+      await check((guard ? 'guard_' : '') + label + '_heading_numbered_' + num + at, () => {
+        const ts = sec(id).querySelectorAll('.section-title');
+        if (ts.length !== 1) return { fail: '#' + id + ' has ' + ts.length + ' .section-title elements, expected 1' };
+        const t = norm(ts[0].textContent);
+        return (t.includes(num) && t.includes(word)) ? null : { fail: 'heading text "' + t + '" lacks "' + num + '" and "' + word + '"' };
+      });
+    }
+
+    // --- Bio (#3 "Bio, exact text")
+    const aboutPs = Array.from(sec('about').querySelectorAll('p')).map(p => norm(p.textContent));
+    for (let i = 0; i < BIO.length; i++) {
+      await check('about_bio_paragraph_' + (i + 1) + '_text_exact' + at, () =>
+        aboutPs.includes(BIO[i]) ? null : { fail: 'no #about p has exactly: "' + BIO[i] + '"; found: ' + aboutPs.map(t => '"' + t.slice(0, 50) + '…"').join(' | ') });
+    }
+    await check('about_bio_paragraphs_in_order' + at, () => {
+      const idx = BIO.map(t => aboutPs.indexOf(t));
+      if (idx.some(i => i < 0)) return { fail: 'not all three bio paragraphs present (indexes ' + idx.join(', ') + ')' };
+      return (idx[0] < idx[1] && idx[1] < idx[2]) ? null : { fail: 'bio paragraphs out of order (indexes ' + idx.join(', ') + ')' };
+    });
+
+    // --- Removed wording (#3 "Layout and content")
+    for (const [name, re] of ABSENT) {
+      await check('page_never_mentions_' + name + at, () => {
+        const m = norm(d.body.textContent).match(re);
+        return m ? { fail: 'found "' + m[0] + '" in the page text' } : null;
+      });
+    }
+
+    // --- Facts
+    function factValue(label) {
+      const dts = Array.from(d.querySelectorAll('#about dl.facts dt')).filter(dt => norm(dt.textContent) === label);
+      if (dts.length !== 1) return { why: dts.length + ' dt "' + label + '" in #about dl.facts, expected 1' };
+      let dd = dts[0].nextElementSibling;
+      while (dd && dd.tagName !== 'DD') dd = dd.nextElementSibling;
+      if (!dd) return { why: 'no dd after dt "' + label + '"' };
+      return { text: norm(dd.textContent) };
+    }
+    for (const [name, label, value, guard] of [
+      ['based_in', 'Based in', 'Boston, MA', true],
+      ['education', 'Education', EDUCATION, true],
+      ['status', 'Status', STATUS, false],
+      ['seeking', 'Seeking', SEEKING, false],
+    ]) {
+      await check((guard ? 'guard_' : '') + 'about_fact_' + name + '_text_exact' + at, () => {
+        const v = factValue(label);
+        if (v.why) return { fail: v.why };
+        return v.text === value ? null : { fail: 'dd for "' + label + '" is "' + v.text + '", expected "' + value + '"' };
+      });
+    }
+    await check('about_facts_have_no_now_entry' + at, () => {
+      const n = Array.from(d.querySelectorAll('#about dl.facts dt')).filter(dt => norm(dt.textContent) === 'Now');
+      return n.length ? { fail: 'found a dt "Now" in #about dl.facts' } : null;
+    });
+
+    // --- Contact (#3 "Contact (04)")
+    await check('contact_states_the_same_seeking_line_as_about' + at, () => {
+      const hit = Array.from(sec('contact').querySelectorAll('*')).some(e => norm(e.textContent) === SEEKING);
+      return hit ? null : { fail: 'no element in #contact has exactly the Seeking text "' + SEEKING + '"' };
+    });
+    for (const k of Object.keys(CONTACT_HREFS)) {
+      await check('guard_contact_links_to_' + k + at, () =>
+        sec('contact').querySelector('a[href="' + CONTACT_HREFS[k] + '"]') ? null : { fail: 'no link to ' + CONTACT_HREFS[k] + ' in #contact' });
+    }
+
+    // --- Hero
+    await check('hero_chips_read_degree_open_to_work_location' + at, () => {
+      const chips = Array.from(d.querySelectorAll('#top .chips li')).map(li => norm(li.textContent));
+      return JSON.stringify(chips) === JSON.stringify(HERO_CHIPS) ? null :
+        { fail: 'chips are ' + JSON.stringify(chips) + ', expected ' + JSON.stringify(HERO_CHIPS) };
+    });
+    await check('guard_hero_intro_unchanged' + at, () => {
+      const ps = Array.from(sec('top').querySelectorAll('p')).map(p => norm(p.textContent));
+      return ps.includes(HERO_INTRO) ? null : { fail: 'no #top p has exactly the intro; found ' + JSON.stringify(ps) };
+    });
+
+    // --- Toolkit
+    const toolkitText = () => {
+      const t = d.querySelector('#about .toolkit');
+      return t ? norm(t.textContent) : null;
+    };
+    for (const [label, items] of TOOLKIT) {
+      const name = label.toLowerCase().replace(/[^a-z]+/g, '_').replace(/_+$/, '');
+      await check('toolkit_lists_' + name + '_group_in_order' + at, () => {
+        const text = toolkitText();
+        if (text === null) return { fail: '#about .toolkit not found' };
+        let pos = text.indexOf(label);
+        if (pos < 0) return { fail: 'label "' + label + '" not in the Toolkit' };
+        pos += label.length;
+        for (const it of items) {
+          const i = text.indexOf(it, pos);
+          if (i < 0) return { fail: '"' + it + '" not found after "' + label + '" in order' };
+          pos = i + it.length;
+        }
+        return null;
+      });
+    }
+    await check('toolkit_groups_in_order' + at, () => {
+      const text = toolkitText();
+      if (text === null) return { fail: '#about .toolkit not found' };
+      let pos = 0;
+      for (const [label, items] of TOOLKIT) {
+        for (const s of [label].concat(items)) {
+          const i = text.indexOf(s, pos);
+          if (i < 0) return { fail: '"' + s + '" missing or out of order in the Toolkit' };
+          pos = i + s.length;
+        }
+      }
+      return null;
+    });
+
+    // --- Experience
+    // The role block for a title: the outermost ancestor holding only that
+    // one role title (works for the current list markup and for Panels).
+    function roleBlock(title) {
+      const h = byText(d, '#experience h3', title);
+      if (!h) return null;
+      let el = h;
+      while (el.parentElement && el.parentElement.querySelectorAll('h3').length === 1) el = el.parentElement;
+      return el;
+    }
+    await check('experience_locust_walk_dates_jun_to_aug_2026' + at, () => {
+      const b = roleBlock('AI Intern');
+      if (!b) return { fail: 'role title "AI Intern" not found' };
+      const hit = Array.from(b.querySelectorAll('*')).some(e => norm(e.textContent) === LOCUST_DATES);
+      const dates = Array.from(b.querySelectorAll('*')).map(e => norm(e.textContent)).filter(t => /\d{4}/.test(t) && t.length < 40);
+      return hit ? null : { fail: 'no element in the AI Intern role reads "' + LOCUST_DATES + '"; date-like text: ' + JSON.stringify(dates) };
+    });
+    for (const [key, title] of [['ai_intern', 'AI Intern'], ['research_associate', 'Research Associate']]) {
+      await check('guard_experience_' + key + '_paragraph_unchanged' + at, () => {
+        const b = roleBlock(title);
+        if (!b) return { fail: 'role title "' + title + '" not found' };
+        const ps = Array.from(b.querySelectorAll('p')).map(p => norm(p.textContent));
+        return ps.includes(ROLE_TEXT[key]) ? null : { fail: 'no p in the ' + title + ' role reads exactly "' + ROLE_TEXT[key] + '"' };
+      });
+    }
+
+    // --- Projects
+    const workPs = Array.from(sec('work').querySelectorAll('p')).map(p => norm(p.textContent));
+    for (const [key, guard] of [['compensation_engine', false], ['smart_lock', true], ['stock_movement', true]]) {
+      const name = key === 'compensation_engine'
+        ? 'projects_compensation_engine_description_names_medical_device_sponsor'
+        : 'guard_projects_' + key + '_description_unchanged';
+      await check(name + at, () => workPs.includes(PROJECT_TEXT[key]) ? null :
+        { fail: 'no #work p reads exactly "' + PROJECT_TEXT[key] + '"' });
+    }
+    await check('guard_projects_source_links_unchanged' + at, () => {
+      const hrefs = Array.from(sec('work').querySelectorAll('a')).map(a => a.getAttribute('href'));
+      const missing = SOURCE_HREFS.filter(h => !hrefs.includes(h));
+      return missing.length ? { fail: 'missing Source links: ' + missing.join(', ') } : null;
+    });
+  }
+
+  // ================================================================ Reveal
+  // Mid-Reveal band: #3 Reveal runs from top at V (start) to top at 0.65V
+  // (finish). Inside 0.70V..0.98V the expected opacity is ~0.06..0.86 and the
+  // displacement ~2.9..18.9px, well clear of the tolerance edges. Also below
+  // max scroll, where #3 requires every Panel to be fully revealed.
+  function inMidBand(ctx, top) {
+    return top >= 0.70 * ctx.V && top <= 0.98 * ctx.V && ctx.win.scrollY < ctx.max - 1;
+  }
+  const MID_BAND_TEXT = '0.70V..0.98V, below max scroll';
+
+  async function revealTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+
+    // #3, user story 16.
+    await check('guard_hero_fully_revealed_at_scroll_zero' + at, async () => {
+      await scrollToY(ctx, 0);
+      const bad = notRevealed(ctx, Array.from(ctx.doc.getElementById('top').children));
+      return bad.length ? { fail: 'not fully revealed at scrollY 0: ' + bad.join('; ') } : null;
+    });
+
+    for (const spec of PANELS) {
+      // #3, user story 10.
+      await check(spec.key + '_mid_reveal_near_viewport_bottom' + at, async () => {
+        const f = spec.find(ctx.doc);
+        if (!f.el) return { fail: f.why };
+        const p = await placeTop(ctx, f.el, 0.9 * ctx.V);
+        if (!inMidBand(ctx, p.top)) return { skip: unreachable(ctx, spec.key, p, MID_BAND_TEXT) };
+        const s = revealState(ctx, f.el);
+        return isMidReveal(s) ? null : { fail: 'expected mid-Reveal (' + MID_OP_MIN + ' < opacity < ' + MID_OP_MAX +
+          ', translateY > ' + MID_DY + 'px) with its top at ' + p.top.toFixed(1) + ' (scrollY ' + ctx.win.scrollY + '); ' + describe(s) };
+      });
+      // #3, user story 13: top at or above 65% of V means fully revealed.
+      await check(spec.key + '_fully_revealed_once_top_reaches_65_percent' + at, async () => {
+        const f = spec.find(ctx.doc);
+        if (!f.el) return { fail: f.why };
+        const p = await placeTop(ctx, f.el, 0.65 * ctx.V - BAND_EDGE);
+        if (p.top > 0.65 * ctx.V) return { skip: unreachable(ctx, spec.key, p, '<= 0.65V') };
+        const s = revealState(ctx, f.el);
+        return isFullyRevealed(s) ? null : { fail: 'expected fully revealed with its top at ' + p.top.toFixed(1) +
+          ' (scrollY ' + ctx.win.scrollY + '); ' + describe(s) };
+      });
+      // #3, user story 11: scroll-linked and reversible.
+      await check(spec.key + '_reveal_reverses_after_scrolling_away_and_back' + at, async () => {
+        const f = spec.find(ctx.doc);
+        if (!f.el) return { fail: f.why };
+        const p = await placeTop(ctx, f.el, 0.9 * ctx.V);
+        if (!inMidBand(ctx, p.top)) return { skip: unreachable(ctx, spec.key, p, MID_BAND_TEXT) };
+        const y = ctx.win.scrollY;
+        const first = revealState(ctx, f.el);
+        await scrollToY(ctx, ctx.max);
+        await scrollToY(ctx, y);
+        const again = revealState(ctx, f.el);
+        if (Math.abs(first.opacity - again.opacity) > REVERSE_TOL) {
+          return { fail: 'opacity changed after scrolling away and back to scrollY ' + y + ': first ' + describe(first) + '; again ' + describe(again) };
+        }
+        return isMidReveal(again) ? null : { fail: 'not mid-Reveal after scrolling back to scrollY ' + y + '; first ' + describe(first) + '; again ' + describe(again) };
+      });
+    }
+  }
+
+  // #3, user story 14: every Panel fully revealed at max scroll, whatever V.
+  async function maxScrollTests(w, h) {
+    const ctx = await openFrame(w, h);
+    await check('every_panel_and_heading_fully_revealed_at_max_scroll@' + ctx.label, async () => {
+      const r = requirePanels(ctx, PANELS);
+      if (r.fail) return r;
+      await scrollToY(ctx, ctx.max);
+      const bad = notRevealed(ctx, revealTargets(ctx));
+      return bad.length ? { fail: 'not fully revealed at max scrollY ' + ctx.win.scrollY + ': ' + bad.join('; ') } : null;
+    });
+  }
+
+  // #3, user stories 15, 28: landing on a Section from its anchor.
+  async function anchorTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    for (const [label, id] of [['about', 'about'], ['experience', 'experience'], ['projects', 'work'], ['contact', 'contact']]) {
+      await scrollToY(ctx, 0);
+      ctx.win.location.hash = '#' + id;
+      let last = NaN, stable = 0;
+      for (let i = 0; i < 150 && stable < 5; i++) {
+        await sleep(100);
+        const y = ctx.win.scrollY;
+        stable = (y === last) ? stable + 1 : 0;
+        last = y;
+      }
+      const landed = stable >= 5;
+      await settle();
+      await check(label + '_panels_fully_revealed_after_anchor_landing' + at, () => {
+        if (!landed) return { fail: 'scroll never came to rest after navigating to #' + id };
+        const r = requirePanels(ctx, PANELS.filter(p => p.section === id));
+        if (r.fail) return r;
+        const inView = Array.from(ctx.doc.getElementById(id).querySelectorAll('.panel')).filter(el => {
+          const t = layoutTop(ctx, el);
+          return t >= 0 && t < ctx.V;
+        });
+        if (!inView.length) return { skip: 'no Panel of #' + id + ' has its top in the viewport at scrollY ' + ctx.win.scrollY };
+        const bad = notRevealed(ctx, inView);
+        return bad.length ? { fail: 'not fully revealed after landing on #' + id + ' (scrollY ' + ctx.win.scrollY + '): ' + bad.join('; ') } : null;
+      });
+      // Contact has no Section heading before #3, so only its case is red.
+      await check((id === 'contact' ? '' : 'guard_') + label + '_heading_below_nav_bar_after_anchor_landing' + at, () => {
+        if (!landed) return { fail: 'scroll never came to rest after navigating to #' + id };
+        const title = ctx.doc.querySelector('#' + id + ' .section-title');
+        if (!title) return { fail: '#' + id + ' has no .section-title' };
+        const bar = ctx.doc.querySelector('header.topbar');
+        if (!bar) return { fail: 'header.topbar not found' };
+        const tt = title.getBoundingClientRect().top, bb = bar.getBoundingClientRect().bottom;
+        return tt >= bb - PX ? null : { fail: 'heading top ' + tt.toFixed(1) + ' is above the nav bar bottom ' + bb.toFixed(1) + ' (scrollY ' + ctx.win.scrollY + ')' };
+      });
+    }
+  }
+
+  // ========================================================= Constellation
+  // Copies the canvas's full backing store via drawImage (no context is
+  // created on the page's canvas, whatever kind it uses).
+  function readPixels(canvas) {
+    if (!canvas.width || !canvas.height) throw new Error('canvas backing store is ' + canvas.width + 'x' + canvas.height);
+    const c = document.createElement('canvas');
+    c.width = canvas.width; c.height = canvas.height;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(canvas, 0, 0);
+    return new Uint32Array(x.getImageData(0, 0, c.width, c.height).data.buffer);
+  }
+  function anyOpaque(px) { for (let i = 0; i < px.length; i++) if (px[i] >>> 24) return true; return false; }
+  function countDiff(a, b) { let n = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n; }
+  function canvasOf(ctx) {
+    const c = ctx.doc.getElementById('constellation');
+    if (!c) return { fail: 'no #constellation element' };
+    if (c.tagName !== 'CANVAS') return { fail: '#constellation is a ' + c.tagName + ', not a CANVAS' };
+    return { c };
+  }
+
+  // Links that must be hit targets at their centres: nav links, Hero
+  // buttons, and links inside Panels, when their centre is inside the
+  // viewport (Hero and Panel links only when also below the fixed bar, which
+  // may legitimately cover them).
+  function linksInView(ctx) {
+    const d = ctx.doc;
+    const vw = d.documentElement.clientWidth, vh = d.documentElement.clientHeight;
+    const bar = d.querySelector('header.topbar');
+    const barBottom = bar ? bar.getBoundingClientRect().bottom : 0;
+    const list = [];
+    function add(a, needBelowBar) {
+      const r = a.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      if (x < 0 || x >= vw || y < 0 || y >= vh) return;
+      if (needBelowBar && y <= barBottom) return;
+      list.push({ a, x, y });
+    }
+    d.querySelectorAll('header.topbar nav a').forEach(a => add(a, false));
+    d.querySelectorAll('#top a.btn').forEach(a => add(a, true));
+    d.querySelectorAll('.panel a').forEach(a => add(a, true));
+    return list;
+  }
+  function hitFailures(ctx, list) {
+    const bad = [];
+    for (const { a, x, y } of list) {
+      const hit = ctx.doc.elementFromPoint(x, y);
+      if (!(hit === a || a.contains(hit))) bad.push('"' + norm(a.textContent) + '" at (' + x.toFixed(1) + ', ' + y.toFixed(1) + ') hits ' + describeEl(hit));
+    }
+    return bad;
+  }
+
+  async function constellationTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    const d = ctx.doc;
+
+    // #3, user story 39.
+    await check('constellation_is_a_canvas_hidden_from_assistive_tech' + at, () => {
+      const c = canvasOf(ctx);
+      if (c.fail) return c;
+      const v = c.c.getAttribute('aria-hidden');
+      return v === 'true' ? null : { fail: 'aria-hidden is ' + JSON.stringify(v) };
+    });
+
+    // #3, user story 2: fixed, covering the viewport. The visible viewport
+    // is documentElement.clientWidth x clientHeight (innerWidth/innerHeight
+    // minus any classic scrollbar); the canvas must cover at least that and
+    // reach no further than innerWidth x innerHeight (+/-1px each).
+    function coverage() {
+      const c = canvasOf(ctx);
+      if (c.fail) return c;
+      const r = c.c.getBoundingClientRect();
+      const cw = d.documentElement.clientWidth, ch = d.documentElement.clientHeight;
+      const iw = ctx.win.innerWidth, ih = ctx.win.innerHeight;
+      const ok = Math.abs(r.left) <= PX && Math.abs(r.top) <= PX &&
+        r.right >= cw - PX && r.right <= iw + PX && r.bottom >= ch - PX && r.bottom <= ih + PX;
+      return ok ? null : { fail: 'canvas rect (' + [r.left, r.top, r.right, r.bottom].map(v => v.toFixed(1)).join(', ') +
+        ') does not cover the viewport (0, 0, ' + cw + '..' + iw + ', ' + ch + '..' + ih + ') at scrollY ' + ctx.win.scrollY };
+    }
+    await check('constellation_covers_viewport_at_top' + at, async () => { await scrollToY(ctx, 0); return coverage(); });
+    await check('constellation_stays_covering_viewport_mid_page' + at, async () => { await scrollToY(ctx, Math.round(ctx.max / 2)); return coverage(); });
+
+    // #3, user story 41: never a click target.
+    for (const [pos, y] of [['at_top', 0], ['mid_page', Math.round(ctx.max / 2)], ['at_max_scroll', ctx.max]]) {
+      await check('constellation_never_takes_clicks_on_links_' + pos + at, async () => {
+        const c = canvasOf(ctx);
+        if (c.fail) return c;
+        await scrollToY(ctx, y);
+        const list = linksInView(ctx);
+        if (!list.length) return { fail: 'no links in view at scrollY ' + ctx.win.scrollY };
+        const bad = hitFailures(ctx, list);
+        return bad.length ? { fail: 'at scrollY ' + ctx.win.scrollY + ': ' + bad.join('; ') } : null;
+      });
+    }
+
+    // #3, user stories 1, 2: actually drawing and animating.
+    await scrollToY(ctx, 0);
+    let first = null, firstErr = null;
+    try { const c = canvasOf(ctx); if (c.fail) firstErr = c.fail; else first = readPixels(c.c); } catch (e) { firstErr = 'error: ' + e.message; }
+    await sleep(PIXEL_GAP_MS);
+    await check('constellation_is_drawn' + at, () => {
+      if (firstErr) return { fail: firstErr };
+      return anyOpaque(first) ? null : { fail: 'every pixel of the canvas is fully transparent' };
+    });
+    await check('constellation_pixels_change_over_time' + at, () => {
+      if (firstErr) return { fail: firstErr };
+      const second = readPixels(canvasOf(ctx).c);
+      if (second.length !== first.length) return null; // resized: it changed
+      const n = countDiff(first, second);
+      return n > 0 ? null : { fail: 'no pixel changed in ' + PIXEL_GAP_MS + 'ms (' + first.length + ' pixels compared)' };
+    });
+  }
+
+  // ============================================================== Timeline
+  function timelineOf(ctx) {
+    const t = ctx.doc.querySelector('#experience .timeline');
+    if (!t) return { fail: '#experience .timeline not found' };
+    const line = t.querySelector('.timeline-line');
+    if (!line) return { fail: '.timeline-line not found in the Timeline' };
+    if (!line.offsetHeight) return { fail: '.timeline-line has offsetHeight 0' };
+    const roles = t.querySelectorAll('.panel');
+    if (!roles.length) return { fail: 'no role .panel inside the Timeline' };
+    return { t, line, last: roles[roles.length - 1] };
+  }
+  function drawn(line) { return line.getBoundingClientRect().height / line.offsetHeight; }
+
+  // Mid-way: the Timeline's top at 0.5V with its bottom below the viewport.
+  async function placeTimelineMidway(ctx, tl) {
+    const p = await placeTop(ctx, tl.t, 0.5 * ctx.V);
+    const bottom = p.top + tl.t.offsetHeight;
+    const ok = Math.abs(p.top - 0.5 * ctx.V) <= BAND_EDGE && bottom > ctx.V;
+    return ok ? null : unreachable(ctx, 'the Timeline', p, 'top at 0.5V with bottom (' + bottom.toFixed(1) + ') below V');
+  }
+
+  async function timelineTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    // #3, user story 21.
+    await check('experience_timeline_line_partly_drawn_mid_way' + at, async () => {
+      const tl = timelineOf(ctx);
+      if (tl.fail) return tl;
+      const why = await placeTimelineMidway(ctx, tl);
+      if (why) return { skip: why };
+      const f = drawn(tl.line);
+      return (f > LINE_MID_MIN && f < LINE_MID_MAX) ? null : { fail: 'drawn fraction ' + f.toFixed(4) + ' not in (' + LINE_MID_MIN + ', ' + LINE_MID_MAX + ') at scrollY ' + ctx.win.scrollY };
+    });
+    await check('experience_timeline_line_fully_drawn_once_last_role_revealed' + at, async () => {
+      const tl = timelineOf(ctx);
+      if (tl.fail) return tl;
+      const p = await placeTop(ctx, tl.last, 0.65 * ctx.V - BAND_EDGE);
+      if (p.top > 0.65 * ctx.V) return { skip: unreachable(ctx, 'the last role Panel', p, '<= 0.65V') };
+      const f = drawn(tl.line);
+      return f >= LINE_FULL ? null : { fail: 'drawn fraction ' + f.toFixed(4) + ' < ' + LINE_FULL + ' with the last role Panel top at ' + p.top.toFixed(1) };
+    });
+    await check('experience_timeline_line_fully_drawn_at_max_scroll' + at, async () => {
+      const tl = timelineOf(ctx);
+      if (tl.fail) return tl;
+      await scrollToY(ctx, ctx.max);
+      const f = drawn(tl.line);
+      return f >= LINE_FULL ? null : { fail: 'drawn fraction ' + f.toFixed(4) + ' < ' + LINE_FULL + ' at max scrollY ' + ctx.win.scrollY };
+    });
+  }
+
+  // ================================================ navigation and progress
+  const NAV = [['about', 'about'], ['experience', 'experience'], ['projects', 'work'], ['contact', 'contact']];
+  function currentLinks(ctx) {
+    return Array.from(ctx.doc.querySelectorAll('header.topbar nav a')).filter(a => a.hasAttribute('aria-current'));
+  }
+  function onlyActive(ctx, id) {
+    const links = Array.from(ctx.doc.querySelectorAll('header.topbar nav a'));
+    const want = links.find(a => a.getAttribute('href') === '#' + id);
+    if (!want) return { fail: 'no nav link to #' + id };
+    const cur = currentLinks(ctx);
+    const desc = cur.map(a => a.getAttribute('href') + '[aria-current=' + a.getAttribute('aria-current') + ']').join(', ') || 'none';
+    if (cur.length !== 1 || cur[0] !== want || want.getAttribute('aria-current') !== 'location') {
+      return { fail: 'expected only the #' + id + ' link with aria-current="location" at scrollY ' + ctx.win.scrollY + '; links with aria-current: ' + desc };
+    }
+    return null;
+  }
+  function progressFraction(ctx) {
+    const p = ctx.doc.querySelector('header.topbar .scroll-progress');
+    if (!p) return { fail: 'header.topbar .scroll-progress not found' };
+    if (!p.offsetWidth) return { fail: '.scroll-progress has offsetWidth 0' };
+    return { f: p.getBoundingClientRect().width / p.offsetWidth };
+  }
+  // The progress line may ease slightly (see tolerances): give it 300ms more.
+  async function scrollForProgress(ctx, y) { await scrollToY(ctx, y); await sleep(300); }
+
+  async function navStateTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    // #3, user story 25 (#3 Navigation: before About is reached, no link).
+    await check('guard_no_active_section_at_top' + at, async () => {
+      await scrollToY(ctx, 0);
+      const cur = currentLinks(ctx);
+      return cur.length ? { fail: 'links with aria-current at scrollY 0: ' + cur.map(a => a.getAttribute('href')).join(', ') } : null;
+    });
+    const order = ['about', 'experience', 'work', 'contact'];
+    for (const [label, id] of NAV.slice(0, 3)) {
+      await check(label + '_is_active_section_with_its_top_at_30_percent' + at, async () => {
+        const sec = ctx.doc.getElementById(id);
+        const next = ctx.doc.getElementById(order[order.indexOf(id) + 1]);
+        const p = await placeTop(ctx, sec, 0.3 * ctx.V);
+        const nextTop = layoutTop(ctx, next);
+        // #3 Navigation: active once its top has passed 40% of V, and the
+        // next Section's top has not; Contact at max scroll.
+        if (!(p.top <= 0.4 * ctx.V - BAND_EDGE && nextTop > 0.4 * ctx.V + BAND_EDGE && ctx.win.scrollY < ctx.max - 1)) {
+          return { skip: unreachable(ctx, '#' + id, p, 'top <= 0.4V with the next Section top (' + nextTop.toFixed(1) + ') > 0.4V, below max scroll') };
+        }
+        return onlyActive(ctx, id);
+      });
+    }
+    await check('contact_is_active_section_at_max_scroll' + at, async () => {
+      await scrollToY(ctx, ctx.max);
+      return onlyActive(ctx, 'contact');
+    });
+    // #3, user story 26.
+    await check('progress_line_empty_at_top' + at, async () => {
+      await scrollForProgress(ctx, 0);
+      const p = progressFraction(ctx);
+      if (p.fail) return p;
+      return p.f <= PROG_EMPTY ? null : { fail: 'drawn fraction ' + p.f.toFixed(4) + ' > ' + PROG_EMPTY + ' at scrollY 0' };
+    });
+    await check('progress_line_half_drawn_at_half_scroll' + at, async () => {
+      await scrollForProgress(ctx, Math.round(ctx.max / 2));
+      const p = progressFraction(ctx);
+      if (p.fail) return p;
+      return (p.f >= PROG_HALF_MIN && p.f <= PROG_HALF_MAX) ? null : { fail: 'drawn fraction ' + p.f.toFixed(4) + ' not in [' + PROG_HALF_MIN + ', ' + PROG_HALF_MAX + '] at scrollY ' + ctx.win.scrollY + ' of ' + ctx.max };
+    });
+    await check('progress_line_full_at_max_scroll' + at, async () => {
+      await scrollForProgress(ctx, ctx.max);
+      const p = progressFraction(ctx);
+      if (p.fail) return p;
+      return p.f >= PROG_FULL ? null : { fail: 'drawn fraction ' + p.f.toFixed(4) + ' < ' + PROG_FULL + ' at max scrollY ' + ctx.win.scrollY };
+    });
+  }
+
+  // #3, user stories 24, 38, 41: nav links (always visible, fixed bar) and
+  // Hero buttons are hit targets at their centres.
+  async function navHitTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    function hitTest(a) {
+      const r = a.getBoundingClientRect();
+      const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const hit = ctx.doc.elementFromPoint(x, y);
+      return (hit === a || a.contains(hit)) ? null : { fail: 'elementFromPoint(' + x.toFixed(1) + ', ' + y.toFixed(1) + ') at scrollY ' +
+        ctx.win.scrollY + ' is ' + describeEl(hit) + ', not the link' };
+    }
+    const links = Array.from(ctx.doc.querySelectorAll('header.topbar nav a'));
+    if (!links.length) { fail('nav_links_present' + at, 'no header.topbar nav a'); return; }
+    await scrollToY(ctx, 0);
+    for (const a of links) {
+      await check('guard_nav_link_' + norm(a.textContent).toLowerCase() + '_is_hit_target_at_top' + at, () => hitTest(a));
+    }
+    for (const a of ctx.doc.querySelectorAll('#top a.btn')) {
+      await check('guard_hero_button_' + norm(a.textContent).toLowerCase().replace(/[^a-z]+/g, '_') + '_is_hit_target_at_top' + at, () => hitTest(a));
+    }
+    const exp = ctx.doc.getElementById('experience');
+    const p = await placeTop(ctx, exp, 0.3 * ctx.V);
+    for (const a of links) {
+      await check('nav_link_' + norm(a.textContent).toLowerCase() + '_is_hit_target_mid_page' + at, () => {
+        if (Math.abs(p.top - 0.3 * ctx.V) > BAND_EDGE) return { skip: unreachable(ctx, '#experience', p, 'top at 0.3V') };
+        return hitTest(a);
+      });
+    }
+  }
+
+  // ======================================================== reduced motion
+  // #3, user story 36.
+  async function reducedMotionTests(w, h) {
+    const ctx = await openFrame(w, h, { mode: 'reduced' });
+    const at = '_with_reduced_motion@' + ctx.label;
+    for (const spec of PANELS) {
+      await check('every_panel_and_heading_fully_revealed_at_' + spec.key + '_mid_reveal_position' + at, async () => {
+        const r = requirePanels(ctx, PANELS);
+        if (r.fail) return r;
+        const f = spec.find(ctx.doc);
+        await placeTop(ctx, f.el, 0.9 * ctx.V);
+        const bad = notRevealed(ctx, revealTargets(ctx));
+        return bad.length ? { fail: 'not fully revealed at scrollY ' + ctx.win.scrollY + ': ' + bad.join('; ') } : null;
+      });
+    }
+    await check('experience_timeline_line_fully_drawn_mid_way' + at, async () => {
+      const tl = timelineOf(ctx);
+      if (tl.fail) return tl;
+      await placeTop(ctx, tl.t, 0.5 * ctx.V);
+      const f = drawn(tl.line);
+      return f >= LINE_FULL ? null : { fail: 'drawn fraction ' + f.toFixed(4) + ' < ' + LINE_FULL + ' at scrollY ' + ctx.win.scrollY };
+    });
+    await scrollToY(ctx, 0);
+    let first = null, firstErr = null;
+    try { const c = canvasOf(ctx); if (c.fail) firstErr = c.fail; else first = readPixels(c.c); } catch (e) { firstErr = 'error: ' + e.message; }
+    await sleep(PIXEL_GAP_MS);
+    await check('constellation_is_drawn' + at, () => {
+      if (firstErr) return { fail: firstErr };
+      return anyOpaque(first) ? null : { fail: 'every pixel of the canvas is fully transparent' };
+    });
+    await check('constellation_holds_still' + at, () => {
+      if (firstErr) return { fail: firstErr };
+      const second = readPixels(canvasOf(ctx).c);
+      if (second.length !== first.length) return { fail: 'canvas backing store changed size' };
+      const n = countDiff(first, second);
+      return n === 0 ? null : { fail: n + ' pixels changed in ' + PIXEL_GAP_MS + 'ms' };
+    });
+  }
+
+  // ============================================================= no script
+  // #3, user story 37: scripts disabled by the iframe sandbox.
+  async function noScriptTests(w, h) {
+    const ctx = await openFrame(w, h, { mode: 'noscript' });
+    const at = '_without_script@' + ctx.label;
+    await check('every_panel_and_heading_fully_revealed' + at, () => {
+      const r = requirePanels(ctx, PANELS);
+      if (r.fail) return r;
+      const bad = notRevealed(ctx, revealTargets(ctx));
+      return bad.length ? { fail: 'not fully revealed: ' + bad.join('; ') } : null;
+    });
+    await check('every_panel_has_size' + at, () => {
+      const r = requirePanels(ctx, PANELS);
+      if (r.fail) return r;
+      const bad = Array.from(ctx.doc.querySelectorAll('.panel')).filter(el => {
+        const b = el.getBoundingClientRect();
+        return !(b.width > 0 && b.height > 0);
+      });
+      return bad.length ? { fail: bad.length + ' Panels have zero size, e.g. ' + describeEl(bad[0]) } : null;
+    });
+    await check('guard_every_nav_link_present' + at, () => {
+      const hrefs = Array.from(ctx.doc.querySelectorAll('header.topbar nav a')).map(a => a.getAttribute('href'));
+      const missing = NAV.map(n => '#' + n[1]).filter(h => !hrefs.includes(h));
+      return missing.length ? { fail: 'missing nav links: ' + missing.join(', ') } : null;
+    });
+  }
+
+  // ============================================================== overflow
+  // #3, user story 34.
+  async function overflowTests(w, h) {
+    const ctx = await openFrame(w, h);
+    const at = '@' + ctx.label;
+    for (const [pos, y] of [['at_top', 0], ['mid_page', Math.round(ctx.max / 2)], ['at_max_scroll', ctx.max]]) {
+      await check('guard_no_horizontal_overflow_' + pos + at, async () => {
+        await scrollToY(ctx, y);
+        const W = ctx.win.innerWidth;
+        const found = [];
+        const sw = ctx.doc.documentElement.scrollWidth;
+        if (sw > W) found.push('documentElement.scrollWidth ' + sw + ' > innerWidth ' + W);
+        for (const el of ctx.doc.querySelectorAll('.panel')) {
+          const r = el.getBoundingClientRect();
+          if (r.left < -PX || r.right > W + PX) found.push(describeEl(el) + ' rect [' + r.left.toFixed(1) + ', ' + r.right.toFixed(1) + '] outside [0, ' + W + ']');
+        }
+        return found.length ? { fail: found.join('; ') + ' at scrollY ' + ctx.win.scrollY } : null;
+      });
+    }
+  }
+
+  // ============================================================== contrast
+  // #3 Implementation Decisions "Panels": Panel body text keeps >= 4.5:1
+  // against the Panel over the brightest Constellation line (--accent-2 at
+  // full opacity, worst case).
+  function rgba(color) {
+    // Normalise any CSS color the browser computes by painting it.
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.clearRect(0, 0, 1, 1);
+    x.fillStyle = '#000'; x.fillStyle = color;
+    x.fillRect(0, 0, 1, 1);
+    const p = x.getImageData(0, 0, 1, 1).data;
+    return { r: p[0], g: p[1], b: p[2], a: p[3] / 255 };
+  }
+  function over(top, under) {
+    return { r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 };
+  }
+  function luminance(c) {
+    const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  }
+  function contrast(a, b) {
+    const la = luminance(a), lb = luminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+  async function contrastTests(w, h) {
+    const ctx = await openFrame(w, h);
+    await check('panel_body_text_contrast_over_brightest_constellation_line@' + ctx.label, () => {
+      const p = ctx.doc.querySelector('#about .panel p');
+      if (!p) return { fail: 'no #about .panel p' };
+      const panel = p.closest('.panel');
+      const lineColor = ctx.win.getComputedStyle(ctx.doc.documentElement).getPropertyValue('--accent-2').trim();
+      if (!lineColor) return { fail: '--accent-2 is not set on :root' };
+      const line = rgba(lineColor); line.a = 1;
+      const bgCss = ctx.win.getComputedStyle(panel).backgroundColor;
+      const fgCss = ctx.win.getComputedStyle(p).color;
+      const bg = over(rgba(bgCss), line);
+      const fg = over(rgba(fgCss), bg);
+      const ratio = contrast(fg, bg);
+      return ratio >= MIN_CONTRAST ? null : { fail: 'contrast ' + ratio.toFixed(2) + ' < ' + MIN_CONTRAST + ' (text ' + fgCss + ' on Panel ' + bgCss + ' over ' + lineColor + ')' };
+    });
+  }
+
+  // ------------------------------------------------------------------- run
+  try {
+    await contentTests();
+    for (const [w, h] of [[1280, 800], [375, 812]]) await revealTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812], [1280, 1600], [1440, 900]]) await maxScrollTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await anchorTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await constellationTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await timelineTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await navStateTests(w, h);
+    for (const [w, h] of [[320, 720], [375, 812], [563, 800], [768, 1024], [1280, 800]]) await navHitTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await reducedMotionTests(w, h);
+    for (const [w, h] of [[1280, 800], [375, 812]]) await noScriptTests(w, h);
+    for (const [w, h] of [[320, 720], [375, 812], [768, 1024], [1440, 900]]) await overflowTests(w, h);
+    await contrastTests(1280, 800);
+  } catch (e) {
+    fail('harness', 'error: ' + (e && e.stack || e));
+  }
+  stage.textContent = '';
+  record('SUMMARY passed=' + results.passed + ' failed=' + results.failed + ' skipped=' + results.skipped);
+  document.title = 'DONE';
+  if (/[?&]post=1\b/.test(location.search)) {
+    try {
+      fetch('/__results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(results) }).catch(() => {});
+    } catch (e) { /* fire-and-forget */ }
+  }
+})();
+</script>
+</body>
+</html>
