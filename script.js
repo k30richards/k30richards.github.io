@@ -545,8 +545,8 @@
     }
   }
 
-  // Tabs carry the employer and dates; the panel has the role title,
-  // the description and the skills.
+  // Tabs carry the employer and dates; the panel has the role title, the
+  // description (with the skills under its bold summary) and any link.
   function buildExperience(section, page) {
     tabbed(page, 'Roles', within(section, '.role').map(function (role) {
       return {
@@ -555,14 +555,14 @@
         fill: function (panel) {
           panel.appendChild(el('h3', 'popup-tabpanel-title', textOf(role.querySelector('.role-title'))));
           appendClone(panel, role.querySelector('.role-text'));
-          appendClone(panel, role.querySelector('.tags'));
+          appendClone(panel, role.querySelector('.card-links'));
         }
       };
     }));
   }
 
-  // Tabs carry the project title and dates; the panel has the
-  // description, the skills and any Source link.
+  // Tabs carry the project title and dates; the panel has the description
+  // (with the skills under its bold summary) and any Source link.
   function buildProjects(section, page) {
     tabbed(page, 'Projects', within(section, '.card').map(function (card) {
       return {
@@ -570,7 +570,6 @@
         when: textOf(card.querySelector('.card-dates')),
         fill: function (panel) {
           appendClone(panel, card.querySelector('.card-text'));
-          appendClone(panel, card.querySelector('.tags'));
           appendClone(panel, card.querySelector('.card-links'));
         }
       };
@@ -629,6 +628,7 @@
       step.button.insertAdjacentHTML(step.delta < 0 ? 'afterbegin' : 'beforeend', icon);
       step.button.addEventListener('click', function () {
         show(current + step.delta);
+        syncUrl(current);
         live.textContent = entries[current].name + ', ' + (current + 1) + ' of ' + entries.length;
         // Focus stays on the arrow so it can be pressed again, unless it
         // just disappeared at either end.
@@ -655,6 +655,8 @@
 
     function show(i) {
       current = i;
+      // Once About has been shown, the Hero's pulse on its button stops for good.
+      if (entries[i].hash === '#about') entries[i].link.classList.add('seen');
       entries.forEach(function (entry, k) { entry.page.hidden = k !== i; });
       headingNum.textContent = entries[i].num;
       headingName.textContent = entries[i].name;
@@ -668,13 +670,49 @@
       body.scrollTop = 0;
     }
 
-    function open(i, from) {
+    // History. Opening a pop-up adds one history entry, so the browser's Back
+    // button (a phone's back gesture too) closes it instead of leaving the
+    // site, and Forward brings it back. Moving between Sections replaces that
+    // entry rather than adding more, and the address always names the Section
+    // on show, so it can be shared. A pop-up opened by a shared link adds no
+    // entry (Back still leaves, as for any landing page), and closing it just
+    // clears the address.
+    function remember(call) { try { call(); } catch (e) { /* history is optional */ } }
+
+    function idOf(i) { return entries[i].hash.slice(1); }
+
+    function indexOfId(id) {
+      for (var k = 0; k < entries.length; k++) if (entries[k].hash === '#' + id) return k;
+      return -1;
+    }
+
+    function syncUrl(i) {
+      var pushed = !!(history.state && history.state.popup && history.state.pushed);
+      remember(function () { history.replaceState({ popup: idOf(i), pushed: pushed }, '', entries[i].hash); });
+    }
+
+    function leaveUrl() {
+      var st = history.state;
+      if (!st || !st.popup) return;              // already stepped back by the Back button
+      remember(function () {
+        if (st.pushed) history.back();
+        else history.replaceState(null, '', location.pathname + location.search);
+      });
+    }
+
+    // how: 'push' (a click), 'replace' (a shared link) or 'none' (history did it).
+    function open(i, from, how) {
       opener = from;
       live.textContent = '';
       show(i);
       root.classList.add('popup-open');
       dialog.showModal();
       heading.focus();
+      if (how === 'push') {
+        remember(function () { history.pushState({ popup: idOf(i), pushed: true }, '', entries[i].hash); });
+      } else if (how === 'replace') {
+        remember(function () { history.replaceState({ popup: idOf(i), pushed: false }, '', entries[i].hash); });
+      }
     }
 
     close.addEventListener('click', function () { dialog.close(); });
@@ -684,6 +722,16 @@
     dialog.addEventListener('close', function () {
       root.classList.remove('popup-open');
       if (opener) opener.focus();
+      leaveUrl();
+    });
+
+    window.addEventListener('popstate', function (e) {
+      var i = e.state && e.state.popup ? indexOfId(e.state.popup) : -1;
+      if (i >= 0) {
+        if (dialog.open) show(i); else open(i, entries[i].link, 'none');
+      } else if (dialog.open) {
+        dialog.close();
+      }
     });
 
     // A click on the dimmed page around the card closes it, but not the
@@ -717,13 +765,13 @@
         // Ctrl/Cmd/Shift-click and middle-click keep their usual meaning.
         if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
-        open(i, entry.link);
+        open(i, entry.link, 'push');
       });
     });
 
     // A shared link like ".../#experience" opens that Section's pop-up.
     entries.forEach(function (entry, i) {
-      if (location.hash === entry.hash) open(i, entry.link);
+      if (location.hash === entry.hash) open(i, entry.link, 'replace');
     });
   }
 

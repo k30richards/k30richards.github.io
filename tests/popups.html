@@ -93,7 +93,8 @@
   const q = (ctx, sel) => ctx.doc.querySelector(sel);
   const qa = (ctx, sel) => Array.from(ctx.doc.querySelectorAll(sel));
   const dlg = ctx => q(ctx, 'dialog.popup');
-  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => norm(a.textContent) === name);
+  const labelOf = a => norm(a.childNodes[0].textContent);          // the "+" is a separate, hidden span
+  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => labelOf(a) === name);
   const heading = ctx => norm(q(ctx, '#popup-title').textContent);
   const visible = el => !!el && !el.hidden && el.getClientRects().length > 0;
   const step = (ctx, which) => qa(ctx, '.popup-step')[which === 'prev' ? 0 : 1];
@@ -142,7 +143,9 @@
     const sentences = (norm(overview.textContent).match(/[.!?](\s|$)/g) || []).length;
     if (sentences !== 1) return 'the overview is ' + sentences + ' sentences long';
     if (wordCount(overview) > 48) return 'the overview is ' + wordCount(overview) + ' words';
-    const rest = kids.slice(1);
+    const skills = kids[1];
+    if (!skills || skills.tagName !== 'UL' || !skills.classList.contains('tags')) return 'the skills do not sit directly under the bold summary';
+    const rest = kids.slice(2);
     const paras = rest.filter(k => k.tagName === 'P');
     const figs = rest.filter(k => k.tagName === 'FIGURE');
     if (rest.length !== paras.length + figs.length) return 'the description holds something other than paragraphs and one figure';
@@ -229,9 +232,43 @@
     });
 
     await check('hero_section_buttons_are_about_experience_projects' + at, () => {
-      const names = qa(ctx, '.hero-sections a').map(a => norm(a.textContent));
+      const names = qa(ctx, '.hero-sections a').map(labelOf);
       return JSON.stringify(names) === JSON.stringify(['About', 'Experience', 'Projects']) ? null :
         'buttons are ' + JSON.stringify(names);
+    });
+
+    await check('hero_has_no_explore_label_and_each_section_button_carries_a_plus' + at, () => {
+      if (q(ctx, '.hero-label, #explore-label')) return 'the Explore label is still there';
+      if (q(ctx, '.hero-sections').getAttribute('aria-label') !== 'Explore') return 'the button group has no accessible name';
+      for (const a of qa(ctx, '.hero-sections a')) {
+        const plus = a.querySelector('.btn-plus');
+        if (!plus || plus.textContent !== '+') return labelOf(a) + ' has no "+"';
+        if (plus.getAttribute('aria-hidden') !== 'true') return 'the "+" on ' + labelOf(a) + ' is read aloud';
+        if (!plus.getClientRects().length) return 'the "+" on ' + labelOf(a) + ' is not visible';
+      }
+    });
+
+    await check('only_the_about_button_pulses_and_it_keeps_going_until_opened' + at, () => {
+      const styles = qa(ctx, '.hero-sections a').map(a => [labelOf(a), ctx.win.getComputedStyle(a)]);
+      const about = styles.find(s => s[0] === 'About')[1];
+      if (about.animationName !== 'nudge') return 'About does not pulse (animation is ' + about.animationName + ')';
+      if (about.animationIterationCount !== 'infinite') return 'the pulse repeats ' + about.animationIterationCount + ', not until opened';
+      if (parseFloat(about.animationDuration) > 4) return 'the pulse is slow: ' + about.animationDuration;
+      const others = styles.filter(s => s[0] !== 'About').filter(s => s[1].animationName !== 'none').map(s => s[0]);
+      return others.length ? 'these also pulse: ' + others.join(', ') : null;
+    });
+
+    await check('reduced_motion_turns_the_pulse_off' + at, () => {
+      const seen = [];
+      for (const sheet of Array.from(ctx.doc.styleSheets)) {
+        let rules; try { rules = Array.from(sheet.cssRules); } catch (e) { continue; }
+        for (const r of rules) {
+          if (!r.media || !/prefers-reduced-motion:\s*reduce/.test(r.conditionText || r.media.mediaText)) continue;
+          seen.push(r.cssText.replace(/\s+/g, ' ').slice(0, 90));
+          if (/hero-sections/.test(r.cssText) && /animation[^;{}]*none/.test(r.cssText)) return null;
+        }
+      }
+      return 'no reduced-motion rule switches off the About pulse; saw ' + seen.length + ': ' + JSON.stringify(seen);
     });
 
     await check('hero_has_no_view_projects_or_get_in_touch_buttons' + at, () => {
@@ -246,7 +283,7 @@
     });
 
     for (const a of qa(ctx, '.hero-sections a, .hero-contact a')) {
-      await check('hero_link_' + norm(a.textContent).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
+      await check('hero_link_' + labelOf(a).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
         () => hitTarget(ctx, a));
     }
   }
@@ -409,7 +446,7 @@
       const want = {
         'Modeling': ['PyTorch', 'TensorFlow', 'Scikit-learn', 'Transformers', 'Multimodal data analysis'],
         'Data': ['Python', 'Pandas', 'NumPy', 'SQL', 'ETL'],
-        'Cloud & reporting': ['Snowflake', 'Azure', 'Tableau'],
+        'Cloud & reporting': ['Snowflake', 'Azure', 'Tableau', 'Matplotlib', 'Seaborn'],
         'LLMs': ['Automation', 'Prompt design', 'Extraction from unstructured sources'],
         'Applied & edge ML': ['Applied AI research', 'Medical image analysis', 'Model optimization', 'Embedded ML']
       };
@@ -588,9 +625,26 @@
         tabs[i].click();
         const got = skillsOf(shown(ctx));
         if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
+        if (shown(ctx).querySelectorAll('.tags').length !== 1) return 'tab ' + (i + 1) + ' lists its skills more than once';
         const why = sameLookProblem(ctx, shown(ctx));
         if (why) return 'tab ' + (i + 1) + ': ' + why;
       }
+    });
+
+    await check('wpi_panel_links_to_the_research_poster_and_locust_walk_has_no_link' + at, async () => {
+      tabs[0].click();
+      if (shown(ctx).querySelector('.card-links')) return 'the Locust Walk panel has a link';
+      tabs[1].click();
+      const a = shown(ctx).querySelector('.card-links a');
+      if (!a) return 'the WPI panel has no poster link';
+      if (!/assets\/wpi-reu-poster\.pdf$/.test(a.getAttribute('href'))) return 'the link goes to ' + a.getAttribute('href');
+      if (a.target !== '_blank' || !/noopener/.test(a.rel)) return 'the link must open in a new tab with rel="noopener"';
+      if (!/PDF/.test(a.getAttribute('aria-label') || '') || !/new tab/.test(a.getAttribute('aria-label') || '')) return 'the link\'s label does not say it is a PDF in a new tab';
+      const r = await fetch('../assets/wpi-reu-poster.pdf');
+      if (!r.ok) return 'the poster file answers ' + r.status;
+      if (!/pdf/i.test(r.headers.get('content-type') || '')) return 'the poster file is served as ' + r.headers.get('content-type');
+      const size = (await r.blob()).size;
+      return size > 100000 && size < 3000000 ? null : 'the poster file is ' + size + ' bytes';
     });
 
     tabs[0].click();
@@ -734,7 +788,7 @@
     await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
       const want = [
         ['Snowflake', 'SQL', 'Tableau', 'Compensation Planning Analysis'],
-        ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
+        ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning'],
         ['PyTorch', 'Transformers', 'Multimodal Data Analysis', 'Time-Series Modeling', 'NLP', 'Model Evaluation']
       ];
       for (let i = 0; i < tabs.length; i++) {
@@ -742,6 +796,8 @@
         const got = skillsOf(shown(ctx));
         if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
         if (got.includes('Streamlit')) return 'tab ' + (i + 1) + ' lists Streamlit as a skill';
+        if (got.includes('Raspberry Pi')) return 'tab ' + (i + 1) + ' lists Raspberry Pi as a skill';
+        if (shown(ctx).querySelectorAll('.tags').length !== 1) return 'tab ' + (i + 1) + ' lists its skills more than once';
         const why = sameLookProblem(ctx, shown(ctx));
         if (why) return 'tab ' + (i + 1) + ': ' + why;
       }
@@ -797,6 +853,163 @@
     }
   }
 
+  /* ---- the Back button ----------------------------------------------------------- */
+
+  async function historyTests() {
+    const ctx = await openFrame(375, 812);
+    const at = '@' + ctx.label;
+    const h = ctx.win.history, here = () => ctx.win.location.hash;
+
+    await check('opening_a_popup_adds_one_history_entry_and_puts_the_section_in_the_address' + at, async () => {
+      await open(ctx, 'Experience');
+      if (here() !== '#experience') return 'the address ends ' + JSON.stringify(here());
+      return h.state && h.state.popup === 'experience' && h.state.pushed === true ? null : 'history state is ' + JSON.stringify(h.state);
+    });
+
+    await check('previous_and_next_keep_the_address_current_without_adding_entries' + at, async () => {
+      step(ctx, 'next').click(); await settle();
+      if (here() !== '#work') return 'after Next the address ends ' + JSON.stringify(here());
+      step(ctx, 'prev').click(); step(ctx, 'prev').click(); await settle();
+      if (here() !== '#about') return 'after Previous twice the address ends ' + JSON.stringify(here());
+      // one Back must still close the pop-up (checked next), so no entry was added on the way
+      return h.state && h.state.popup === 'about' && h.state.pushed === true ? null : 'history state is ' + JSON.stringify(h.state);
+    });
+
+    await check('the_back_button_closes_the_popup_clears_the_address_and_returns_focus' + at, async () => {
+      h.back(); await sleep(300);
+      if (dlg(ctx).open) return 'the pop-up is still open after Back';
+      if (here() !== '') return 'the address still ends ' + JSON.stringify(here());
+      if (ctx.doc.documentElement.classList.contains('popup-open')) return 'the page is still locked';
+      return ctx.doc.activeElement === heroLink(ctx, 'Experience') ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+
+    await check('forward_reopens_the_popup_on_the_section_it_was_showing' + at, async () => {
+      h.forward(); await sleep(300);
+      if (!dlg(ctx).open) return 'the pop-up did not reopen';
+      return heading(ctx) === '01 About' && here() === '#about' ? null : 'it shows ' + JSON.stringify(heading(ctx)) + ' at ' + JSON.stringify(here());
+    });
+
+    await check('closing_with_x_also_clears_the_address' + at, async () => {
+      await closeByButton(ctx); await sleep(300);
+      if (dlg(ctx).open) return 'the pop-up is still open';
+      return here() === '' ? null : 'the address still ends ' + JSON.stringify(here());
+    });
+
+    const shared = await openFrame(375, 812, { hash: '#experience' });
+    await check('a_shared_link_opens_the_popup_and_closing_it_just_clears_the_address' + '@' + shared.label, async () => {
+      if (!dlg(shared).open) return 'the shared link did not open the pop-up';
+      const doc = shared.doc;
+      await closeByButton(shared); await sleep(300);
+      if (shared.doc !== doc || shared.win.document !== doc) return 'the page navigated away';
+      return shared.win.location.hash === '' ? null : 'the address still ends ' + JSON.stringify(shared.win.location.hash);
+    });
+  }
+
+  /* ---- the pulse on About stops once About has been opened ---------------------- */
+
+  async function pulseTests() {
+    const ctx = await openFrame(375, 812);
+    const at = '@' + ctx.label;
+    const about = () => heroLink(ctx, 'About');
+    const pulsing = () => ctx.win.getComputedStyle(about()).animationName === 'nudge';
+
+    await check('the_pulse_is_still_going_after_opening_another_section' + at, async () => {
+      if (!pulsing()) return 'About is not pulsing to begin with';
+      await open(ctx, 'Experience'); await closeByButton(ctx); await sleep(300);
+      return pulsing() && !about().classList.contains('seen') ? null : 'opening Experience stopped the About pulse';
+    });
+
+    await check('the_pulse_stops_for_good_once_about_has_been_opened' + at, async () => {
+      await open(ctx, 'About');
+      if (!about().classList.contains('seen')) return 'About was opened but is not marked seen';
+      await closeByButton(ctx); await sleep(300);
+      if (pulsing()) return 'About still pulses after it was opened';
+      await open(ctx, 'Experience'); await closeByButton(ctx); await sleep(300);
+      return pulsing() ? 'the pulse came back' : null;
+    });
+
+    await check('reaching_about_with_previous_also_stops_the_pulse' + at, async () => {
+      const fresh = await openFrame(375, 812);
+      await open(fresh, 'Experience');
+      step(fresh, 'prev').click(); await settle();
+      const link = heroLink(fresh, 'About');
+      return link.classList.contains('seen') && fresh.win.getComputedStyle(link).animationName === 'none' ? null : 'the pulse did not stop';
+    });
+  }
+
+  /* ---- readability: every visible text color against what it sits on ---------- */
+
+  const probe = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+  probe.canvas.width = probe.canvas.height = 1;
+  function toRgba(css) {                      // any CSS color, as [r, g, b, alpha 0..1]
+    probe.clearRect(0, 0, 1, 1);
+    probe.fillStyle = '#000';
+    probe.fillStyle = css;
+    probe.fillRect(0, 0, 1, 1);
+    const d = probe.getImageData(0, 0, 1, 1).data;
+    return [d[0], d[1], d[2], d[3] / 255];
+  }
+  const over = (top, under) => [0, 1, 2].map(i => top[i] * top[3] + under[i] * (1 - top[3]));
+  const channel = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const luminance = c => 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2]);
+  function contrast(a, b) { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+
+  function backdropOf(ctx, el) {
+    let bg = toRgba(ctx.win.getComputedStyle(ctx.doc.body).backgroundColor).slice(0, 3);
+    const chain = [];
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.unshift(n);
+    for (const n of chain) {
+      const c = toRgba(ctx.win.getComputedStyle(n).backgroundColor);
+      if (c[3] > 0) bg = over(c, bg);
+    }
+    return bg;
+  }
+
+  function contrastProblems(ctx, root) {
+    const bad = [];
+    for (const el of Array.from(root.querySelectorAll('*'))) {
+      if (el.closest('svg, .visually-hidden, template, script, style')) continue;
+      if (!Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+      if (!el.getClientRects().length) continue;
+      const cs = ctx.win.getComputedStyle(el);
+      const size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight, 10) >= 700;
+      const need = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
+      const fg = toRgba(cs.color), bg = backdropOf(ctx, el);
+      const r = contrast(over(fg, bg), bg);
+      if (r < need) bad.push(norm(el.textContent).slice(0, 28) + ' (' + el.tagName.toLowerCase() + '.' + (el.className || '') + ') ' + r.toFixed(2) + ':1');
+    }
+    for (const tx of Array.from(root.querySelectorAll('svg text'))) {       // diagram text: the fill against its box
+      const leaves = tx.children.length ? Array.from(tx.children) : [tx];
+      let box = tx.previousElementSibling;
+      while (box && box.tagName.toLowerCase() !== 'rect') box = box.previousElementSibling;
+      let bg = backdropOf(ctx, tx);
+      if (box) { const f = toRgba(ctx.win.getComputedStyle(box).fill); if (f[3] > 0) bg = over(f, bg); }
+      for (const lf of leaves) {
+        const r = contrast(over(toRgba(ctx.win.getComputedStyle(lf).fill), bg), bg);
+        if (r < 4.5) bad.push('diagram text "' + norm(lf.textContent).slice(0, 24) + '" ' + r.toFixed(2) + ':1');
+      }
+    }
+    return bad;
+  }
+
+  async function contrastTests() {
+    const ctx = await openFrame(1280, 800);
+    const found = [];
+    found.push(...contrastProblems(ctx, q(ctx, '#top')).map(b => 'hero: ' + b));
+    for (const [name, tabsWanted] of [['About', 1], ['Experience', 2], ['Projects', 3]]) {
+      await open(ctx, name);
+      for (let i = 0; i < tabsWanted; i++) {
+        const tabs = openTabs(ctx);
+        if (tabs.length) tabs[i].click();
+        await sleep(350);                 // let the tab and page animations finish before measuring
+        found.push(...contrastProblems(ctx, dlg(ctx)).map(b => name + (tabs.length ? ' tab ' + (i + 1) : '') + ': ' + b));
+      }
+      await closeByButton(ctx);
+    }
+    await check('every_visible_text_color_has_enough_contrast_on_what_it_sits_on@' + ctx.label, () =>
+      found.length ? found.length + ' low-contrast text item(s); first: ' + found.slice(0, 4).join('; ') : null);
+  }
+
   /* ---- deep links, no-JavaScript fallback, global guards ---------------------- */
 
   async function deepLinkTests(w, h, hash, want) {
@@ -840,6 +1053,31 @@
     await check('no_skills_list_or_toolkit_lists_scripting', () => {
       const bad = qa(ctx, '.tags li, .toolkit-group li').find(li => /scripting/i.test(li.textContent));
       return bad ? 'a list still has "' + norm(bad.textContent) + '"' : null;
+    });
+
+    await check('the_head_has_icons_a_theme_color_and_a_share_card', async () => {
+      const meta = sel => { const m = ctx.doc.querySelector(sel); return m ? m.getAttribute('content') : null; };
+      const link = sel => { const l = ctx.doc.querySelector(sel); return l ? l.getAttribute('href') : null; };
+      if (meta('meta[name="theme-color"]') !== '#0a0e17') return 'theme-color is ' + meta('meta[name="theme-color"]');
+      if (!/favicon\.svg$/.test(link('link[rel="icon"][type="image/svg+xml"]') || '')) return 'no SVG tab icon';
+      if (!/icon\.png$/.test(link('link[rel="icon"][type="image/png"]') || '')) return 'no PNG tab icon';
+      if (!/icon\.png$/.test(link('link[rel="apple-touch-icon"]') || '')) return 'no apple-touch-icon';
+      if (link('link[rel="canonical"]') !== 'https://k30richards.github.io/') return 'canonical is ' + link('link[rel="canonical"]');
+      const description = meta('meta[name="description"]');
+      const want = { 'og:type': 'website', 'og:title': 'Kobe Richards \u2014 AI, ML & Data Scientist', 'og:description': description,
+                     'og:url': 'https://k30richards.github.io/', 'og:image': 'https://k30richards.github.io/assets/og-image.png',
+                     'og:image:width': '1200', 'og:image:height': '630' };
+      for (const k of Object.keys(want)) if (meta('meta[property="' + k + '"]') !== want[k]) return k + ' is ' + JSON.stringify(meta('meta[property="' + k + '"]'));
+      if ((meta('meta[property="og:image:alt"]') || '').length < 30) return 'og:image:alt is missing or too short';
+      if (meta('meta[name="twitter:card"]') !== 'summary_large_image') return 'twitter:card is ' + meta('meta[name="twitter:card"]');
+      for (const f of ['favicon.svg', 'icon.png', 'og-image.png']) {
+        const r = await fetch('../assets/' + f);
+        if (!r.ok) return 'assets/' + f + ' answers ' + r.status;
+      }
+      const dims = await new Promise(res => { const im = new Image(); im.onload = () => res([im.naturalWidth, im.naturalHeight]); im.onerror = () => res(null); im.src = '../assets/og-image.png'; });
+      if (!dims || dims[0] !== 1200 || dims[1] !== 630) return 'og-image.png is ' + JSON.stringify(dims) + ', expected 1200x630';
+      const icon = await new Promise(res => { const im = new Image(); im.onload = () => res([im.naturalWidth, im.naturalHeight]); im.onerror = () => res(null); im.src = '../assets/icon.png'; });
+      return icon && icon[0] === 512 && icon[1] === 512 ? null : 'icon.png is ' + JSON.stringify(icon) + ', expected 512x512';
     });
 
     await check('the_page_never_says_snowflake_scripting', () => {
@@ -905,6 +1143,9 @@
     await deepLinkTests(1280, 800, '#work', '03 Projects');
     await noScriptTests(1280, 800);
     await noScriptTests(375, 812);
+    await historyTests();
+    await pulseTests();
+    await contrastTests();
     await globalTests();
   } catch (e) {
     fail('harness', 'error: ' + (e && e.stack || e));
