@@ -150,23 +150,46 @@
           <div class="role-what">
             <h3 class="role-title">AI Intern</h3>
             <p class="role-org">Locust Walk</p>
-            <p class="role-text">
-              I built a Python pipeline that replaced the firm&rsquo;s manual
-              CRM contact research. For each target company it finds the
-              leadership and board pages, has the Claude API extract every
-              person and title from the page text, and checks each title
-              against a whitelist of the roles the business development team
-              actually tracks. Apollo then adds email and LinkedIn details,
-              and the output loads straight into the CRM. Across 211 firms it
-              found 2,042 contacts, roughly 72% of them new to the CRM, and
-              the team uses it today. I also evaluated CRM and enrichment
-              platforms to guide the firm&rsquo;s technology decisions.
-            </p>
+            <div class="role-text">
+              <p><strong>
+                I built an automated pipeline that finds the executives and
+                board members at the companies the firm tracks and prepares
+                them to load into its CRM, replacing contact research that was
+                done by hand.
+              </strong></p>
+              <p>
+                The firm&rsquo;s CRM data was incomplete and going stale, and
+                keeping it current meant researching one contact at a time,
+                which did not scale. For each company, the pipeline finds its
+                leadership and board pages, pulls the page text (with Jina, or
+                Playwright for pages that need a real browser), has the Claude
+                API read it and extract every name and title, and keeps only
+                the roles the business development team tracks by checking
+                each title against a whitelist I wrote. Apollo then adds
+                emails and LinkedIn profiles. The CRM could not take that
+                output as it was, so I wrote ETL scripts that clean the
+                results, remove duplicates, map each location to the
+                CRM&rsquo;s own region categories and reshape everything into
+                its import format, so the contacts merge in without creating
+                duplicate or conflicting records. Run across 211 firms, it
+                found 2,042 contacts, an estimated 72% of them new to the CRM.
+                The team uses it today, and the firm projects it will save
+                hundreds of working hours a year. I also compared CRM and AI
+                tools for the firm, including a cost model of its tool stack,
+                and tested them on its real data. For
+                example, I found that Clay fails silently on records missing a
+                company domain and LinkedIn address, which helped the firm
+                choose tools that would work at a low cost.
+              </p>
+            </div>
             <ul class="tags">
               <li>Python</li>
-              <li>LLMs</li>
+              <li>LLMs &amp; AI Tooling</li>
+              <li>ETL</li>
               <li>API Integration</li>
               <li>Workflow Automation</li>
+              <li>CRM Systems</li>
+              <li>Technology Evaluation</li>
             </ul>
           </div>
         </li>
@@ -180,23 +203,40 @@
           <div class="role-what">
             <h3 class="role-title">Research Associate</h3>
             <p class="role-org">Worcester Polytechnic Institute</p>
-            <p class="role-text">
-              I tested six prompting strategies, from Zero-Shot and Few-Shot
-              to Chain of Thought and Tree of Thought, for getting ChatGPT to
-              stage pressure wounds from photos, running each one across 1,091
-              images spanning four severity stages. A Python script scored
-              every strategy on accuracy, precision, recall and F1. Chain of
-              Thought, which has the model reason step by step before it
-              answers, came out ahead on all four, at 72.5% accuracy. To check
-              consistency I re-ran two images from each stage ten times, which
-              showed that small changes in prompt wording shift the answers
-              noticeably. I presented the work at WPI&rsquo;s NSF REU research
-              symposium.
-            </p>
+            <div class="role-text">
+              <p><strong>
+                I tested six prompting strategies for getting ChatGPT to
+                identify the stage of a pressure wound from a photo, to find
+                out which one is the most accurate and consistent.
+              </strong></p>
+              <p>
+                Pressure injuries are staged by looking at them, which is
+                subjective, so the question was whether an AI model could do
+                it reliably and which way of asking works best. I worked from
+                the PIID dataset of 1,091 wound images across four severity
+                stages and took an 80-image sample, 20 from each stage. I
+                designed six prompts: Zero-Shot (no examples), Few-Shot (a few
+                examples), Chain of Thought (reason step by step), Tree of
+                Thought (weigh several lines of reasoning) and two structured
+                templates, CO-STAR and TIDD-EC. I ran each one in ChatGPT and
+                wrote a Python script to score accuracy, precision, recall and
+                F1 and to build confusion matrices. To test consistency, I
+                picked two images from each stage, one that clearly matched
+                its stage and one an observer could easily mislabel, and ran
+                every prompt on each image ten times. Chain of Thought did
+                best on all four measures, at 72.5% accuracy, and Few-Shot was
+                the least reliable. Small changes in wording moved the
+                answers, and adding medical context made them steadier, which
+                is worth knowing before anyone relies on AI for medical
+                images. I presented the results at WPI&rsquo;s NSF REU
+                research symposium.
+              </p>
+            </div>
             <ul class="tags">
               <li>Prompt Engineering</li>
+              <li>Applied AI Research</li>
+              <li>Medical Image Analysis</li>
               <li>Python</li>
-              <li>Applied ML Research</li>
             </ul>
           </div>
         </li>
@@ -226,26 +266,45 @@
         </div>
         <h3 class="card-title">Unified Compensation Modeling Engine</h3>
         <p class="card-meta">Graduate Qualifying Project &middot; <span class="card-dates">Jan 2026 &ndash; May 2026</span></p>
-        <p class="card-text">
-          Our four-person graduate team worked with a medical device
-          company&rsquo;s compensation strategy group to replace a
-          spreadsheet-based sales compensation process with a central,
-          rule-driven system. I designed the Snowflake data model: a star
-          schema with one central table of results per sales rep, product and
-          month, linked to tables describing territories, roles and products,
-          so a monthly figure and a quarterly rollup can never disagree.
-          Compensation rules are stored as versioned data instead of formulas
-          buried in spreadsheets, and a calculation engine applies them to
-          monthly, quarterly and annual payouts. I also built the Tableau
-          dashboard for comparing plan scenarios, alongside a Streamlit app
-          for entering inputs. The sponsor&rsquo;s team expects it to save
-          over 300 hours of work a year.
-        </p>
+        <div class="card-text">
+          <p><strong>
+            Our four-person team replaced a medical device company&rsquo;s
+            spreadsheet-based sales compensation modeling with a rule-driven
+            system in Snowflake, and I built the Tableau dashboards that turn
+            its results into comparisons stakeholders can act on.
+          </strong></p>
+          <p>
+            The sponsor&rsquo;s compensation team designs sales incentive
+            plans and has to test many versions of each plan against real
+            sales data before one is chosen. They did that in spreadsheets
+            full of repeated formulas and inconsistent data, which was slow
+            and hard to trust. We replaced it with a system in Snowflake,
+            designing and building the data model and calculation engine
+            together as a team. Sales results sit in one central table (a star
+            schema) tied to tables for territories, roles, products and time,
+            so every comparison starts from the same numbers. Each
+            plan&rsquo;s rules are stored as data in three layers (the
+            plan&rsquo;s details, its payout rates and the reps it applies
+            to), separate from the code, so a plan can change without
+            rewriting anything. A calculation engine, built from stored
+            procedures written with Snowflake scripting in SQL, works out who
+            qualifies and what each rep is paid (base pay, accelerators and
+            bonuses), with checks along the way. My teammates built the
+            Streamlit app where analysts enter plan settings without writing
+            SQL. I designed and built the Tableau dashboards on top of the
+            results: one compares the current plan with proposed ones, one
+            tracks representative performance against plan over time, and one
+            shows when payouts land across the year. The system covers four of
+            the six franchises and the three standard payout types, and the
+            team expects it to save over 300 hours of work a year.
+          </p>
+        </div>
         <ul class="tags">
           <li>Snowflake</li>
           <li>SQL</li>
-          <li>Streamlit</li>
+          <li>Snowflake Scripting</li>
           <li>Tableau</li>
+          <li>Compensation Planning Analysis</li>
         </ul>
       </article>
 
@@ -259,23 +318,46 @@
         </div>
         <h3 class="card-title">Edge-Based Smart Lock System</h3>
         <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
-        <p class="card-text">
-          Our team built a door lock on a Raspberry Pi that opens when you say
-          a wake word and then sign a numeric code with your hand, so it works
-          without touching anything. Most of the work went into making the
-          models small and fast enough for that hardware. Post-training
-          quantization, which stores the model&rsquo;s weights as 8-bit
-          integers instead of 32-bit decimals, cut the wake word model from 79
-          KB to 25 KB and each prediction from 108 to 36 microseconds, while
-          accuracy went from 96.1% to 98.3%. We also compared pruning, weight
-          clustering and a fully binarized network, and wrote part of the
-          binarized network as Verilog hardware logic to estimate how much
-          faster a dedicated chip could run it.
-        </p>
+        <div class="card-text">
+          <p><strong>
+            Our team built a touch-free door lock that listens for a wake word
+            and then reads a four-digit code signed by hand to a camera, and
+            my part was shrinking the models so they run fast on a small
+            Raspberry Pi.
+          </strong></p>
+          <p>
+            Keys and keypads do not work for people with limited vision or
+            mobility, so the team designed a lock that needs no touch. A
+            Raspberry Pi 5 with a microphone, camera and small display listens
+            for a wake word (&ldquo;House&rdquo;), then turns on the camera
+            and reads the four-digit code signed with the hand, showing Locked
+            or Unlocked on the display. Two neural networks do the
+            recognizing: one for the wake word, trained on Google&rsquo;s
+            Speech Commands audio, and one for the hand signs, trained on a
+            27-class sign-language image set (we used digits 0 to 9). The rest
+            of the team trained those models and wrote the Pi software, and
+            also tested a binarized version of the wake word network (one bit
+            per weight) and took it through chip-design tools to estimate how
+            fast dedicated hardware could run it. My part was compression,
+            because the models had to run quickly on very limited hardware.
+            Using TensorFlow&rsquo;s optimization tools and Lite-RT, I tried
+            pruning (removing weights that matter little), several kinds of
+            quantization (storing weights as small integers instead of 32-bit
+            decimals), weight clustering (letting similar weights share a
+            value) and quantization-aware training, and compared every version
+            on size and accuracy. The best all-round result was 8-bit
+            quantization: the wake word model dropped from 79 KB to 25 KB (68%
+            smaller), accuracy rose from 96.1% to 98.3%, and each prediction
+            on the Pi dropped from 108 to 36 microseconds. Pruning got it down
+            to 10 KB at 94.5% accuracy, which gave the team a clear
+            size-versus-accuracy menu to choose from.
+          </p>
+        </div>
         <ul class="tags">
+          <li>Model Optimization</li>
           <li>TensorFlow</li>
           <li>Embedded ML</li>
-          <li>Model Optimization</li>
+          <li>Quantization &amp; Pruning</li>
           <li>Raspberry Pi</li>
         </ul>
         <p class="card-links">
@@ -293,22 +375,45 @@
         </div>
         <h3 class="card-title">Multimodal Stock Movement Prediction</h3>
         <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
-        <p class="card-text">
-          A four-person course project testing whether financial news adds
-          real predictive signal to stock price movement beyond price history
-          alone. We scored news headlines with FinBERT, a language model
-          trained on financial text, and fed that sentiment alongside
-          price-based features into a dual-stream transformer, a model that
-          reads the two inputs separately before combining them. We compared
-          it against five other models, including an LSTM and a naive
-          baseline. The dual-stream model performed best, but our news data
-          covered only about 25 days, so the result needs a longer test window
-          before it can be trusted.
-        </p>
+        <div class="card-text">
+          <p><strong>
+            Our four-person team tested whether financial news improves stock
+            direction predictions beyond what price history alone gives, and I
+            built the price data work, the price-only models and the model
+            that combines news with prices.
+          </strong></p>
+          <p>
+            Most stock-prediction models only look at past prices, so the
+            question was whether the news adds a real signal about whether a
+            stock will go up or down. The team used S&amp;P 500 prices from
+            Yahoo Finance and news headlines scored by FinBERT, a language
+            model trained on financial text, and my teammates built and tuned
+            the FinBERT sentiment models. I started with the data: I picked 15
+            stocks that behave differently (five steady, five volatile and
+            five flat, sorted by their volatility and total return) and
+            engineered features such as moving averages, RSI and MACD, using a
+            random forest to check which ones mattered. I then built the
+            price-only models that set the bar: a naive baseline that predicts
+            tomorrow will match today, a bidirectional LSTM, and a multi-task
+            transformer that reads 30 days of features and predicts the next
+            day, week and month. Finally I built the dual-stream transformer,
+            which processes price and sentiment separately and lets them look
+            at each other through cross-attention, with an autoencoder
+            compressing the sentiment inputs and focal loss to handle the
+            imbalance between up and down days. It scored 92.7% accuracy for
+            next-day direction and 97.81% for next-week, well above the
+            baselines, but the sentiment history covered only about 25 days,
+            so those numbers need a longer test before anyone should trust
+            them.
+          </p>
+        </div>
         <ul class="tags">
           <li>PyTorch</li>
+          <li>Transformers</li>
+          <li>Multimodal Data Analysis</li>
+          <li>Time-Series Modeling</li>
           <li>NLP</li>
-          <li>Time-Series</li>
+          <li>Model Evaluation</li>
         </ul>
         <p class="card-links">
           <a href="https://github.com/atiwari18/BuffERT">Source&nbsp;&rarr;</a>

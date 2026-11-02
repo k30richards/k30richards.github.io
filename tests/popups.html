@@ -125,6 +125,34 @@
       'elementFromPoint(' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is ' + describeEl(hit) + ', not the link';
   }
 
+  // A role or project is a bold one-sentence overview, then one paragraph.
+  function structureProblem(ctx, panel) {
+    const box = panel.querySelector('.role-text, .card-text');
+    if (!box) return 'no description';
+    const ps = Array.from(box.children);
+    if (ps.length !== 2 || ps.some(p => p.tagName !== 'P')) return 'description is ' + ps.length + ' block(s), not two paragraphs';
+    const strong = ps[0].querySelector('strong');
+    if (!strong || norm(strong.textContent) !== norm(ps[0].textContent)) return 'the first paragraph is not entirely bold';
+    const sentences = (norm(ps[0].textContent).match(/[.!?](\s|$)/g) || []).length;
+    if (sentences !== 1) return 'the overview is ' + sentences + ' sentences long';
+    if (ps[1].querySelector('strong, b')) return 'the second paragraph has bold text in it';
+    const len = norm(ps[1].textContent).length;
+    if (len < 400) return 'the second paragraph is only ' + len + ' characters';
+    const weight = n => parseInt(ctx.win.getComputedStyle(n).fontWeight, 10);
+    if (weight(strong) < 600) return 'the overview renders at weight ' + weight(strong);
+    if (weight(ps[1]) > 500) return 'the second paragraph renders bold';
+  }
+  const skillsOf = panel => Array.from(panel.querySelectorAll('.tags li')).map(li => norm(li.textContent));
+  // The first three skills are drawn stronger than the rest.
+  function emphasisProblem(ctx, panel) {
+    const lis = Array.from(panel.querySelectorAll('.tags li'));
+    if (lis.length < 4) return 'fewer than four skills';
+    const look = li => { const s = ctx.win.getComputedStyle(li); return s.color + '|' + s.borderTopColor + '|' + s.backgroundColor; };
+    const first = lis.slice(0, 3).map(look), rest = lis.slice(3).map(look);
+    if (!first.every(f => f === first[0])) return 'the first three skills do not match each other';
+    if (rest.some(r => r === first[0])) return 'a skill after the third looks like the first three';
+  }
+
   // The focusable controls inside the dialog, in order: what Tab visits.
   function stops(ctx) {
     return qa(ctx, 'dialog.popup a[href], dialog.popup button, dialog.popup [tabindex]')
@@ -416,6 +444,40 @@
       for (const w of ['Chain of Thought', '1,091', 'F1']) if (!b.includes(w)) return 'WPI text lacks "' + w + '"';
     });
 
+    await check('experience_text_is_a_bold_one_sentence_overview_then_one_paragraph' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const why = structureProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    await check('experience_text_says_only_what_is_accurate' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).textContent);
+      tabs[1].click(); const b = norm(shown(ctx).textContent);
+      if (!/ETL scripts/.test(a)) return 'Locust Walk text does not mention the ETL scripts';
+      if (/(load|loads|loaded)\s+(straight|directly)\s+into/i.test(a)) return 'Locust Walk text says the output loaded straight into the CRM';
+      if (!/no duplicate|without creating duplicate/i.test(a)) return 'Locust Walk text does not say the ETL avoids duplicates';
+      if (!/80-image sample, 20 from each stage/.test(b)) return 'WPI text does not describe the 80-image sample';
+      if (!/two images from each stage, one that clearly matched its stage and one an observer could easily mislabel/.test(b)) return 'WPI text does not describe the two images per stage';
+      if (!/ten times/.test(b)) return 'WPI text does not say each prompt ran ten times';
+      if (/(all|each of the|every one of the) 1,091/i.test(b)) return 'WPI text claims all 1,091 images were run';
+    });
+
+    await check('experience_skills_are_listed_in_priority_order_and_the_first_three_stand_out' + at, () => {
+      const want = [
+        ['Python', 'LLMs & AI Tooling', 'ETL', 'API Integration', 'Workflow Automation', 'CRM Systems', 'Technology Evaluation'],
+        ['Prompt Engineering', 'Applied AI Research', 'Medical Image Analysis', 'Python']
+      ];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const got = skillsOf(shown(ctx));
+        if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
+        const why = emphasisProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
     tabs[0].click();
     await tabsA11yAndKeys(ctx, 'Experience', 2);
     await closeByButton(ctx);
@@ -473,6 +535,46 @@
         return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
       if (/115/.test(lock)) return 'smart lock text quotes the baseline 115 mW next to the quantized model';
       if (!stock.includes('FinBERT') || !stock.includes('25 days')) return 'stock text must name FinBERT and the 25-day data limit';
+    });
+
+    await check('projects_text_is_a_bold_one_sentence_overview_then_one_paragraph' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const why = structureProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    await check('projects_text_claims_only_what_was_mine' + at, () => {
+      tabs[0].click(); const comp = norm(shown(ctx).textContent);
+      tabs[1].click(); const lock = norm(shown(ctx).textContent);
+      tabs[2].click(); const stock = norm(shown(ctx).textContent);
+      if (!/I (designed and )?built the Tableau dashboards/.test(comp)) return 'compensation text does not claim the Tableau dashboards';
+      if (!/My teammates built the Streamlit app/.test(comp)) return 'compensation text does not credit teammates with the Streamlit app';
+      if (/\bI\b[^.]*\b(built|designed|created|wrote)\b[^.]*Streamlit/.test(comp)) return 'compensation text claims the Streamlit app';
+      if (/\bI\b[^.]*\b(designed|built|created|wrote)\b[^.]*(data model|star schema|calculation engine|stored procedure)/.test(comp)) return 'compensation text claims the shared data model or engine';
+      if (!/together as a team/.test(comp)) return 'compensation text does not say the data model and engine were built together';
+      if (!/My part was compression/.test(lock) || !/The rest of the team trained those models/.test(lock)) return 'smart lock text does not split the team work from the compression';
+      if (/\bI\b[^.]*\b(trained|wrote the Pi software|binarized)/.test(lock)) return 'smart lock text claims work that was a teammate\'s';
+      if (!/teammates built and tuned the FinBERT sentiment models/.test(stock)) return 'stock text does not credit teammates with the FinBERT models';
+      for (const w of ['15 stocks', 'bidirectional LSTM', 'multi-task transformer', 'dual-stream transformer', 'cross-attention', 'autoencoder', 'focal loss'])
+        if (!stock.includes(w)) return 'stock text lacks "' + w + '"';
+    });
+
+    await check('projects_skills_are_listed_in_priority_order_and_the_first_three_stand_out' + at, () => {
+      const want = [
+        ['Snowflake', 'SQL', 'Snowflake Scripting', 'Tableau', 'Compensation Planning Analysis'],
+        ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
+        ['PyTorch', 'Transformers', 'Multimodal Data Analysis', 'Time-Series Modeling', 'NLP', 'Model Evaluation']
+      ];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const got = skillsOf(shown(ctx));
+        if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
+        if (got.includes('Streamlit')) return 'tab ' + (i + 1) + ' lists Streamlit as a skill';
+        const why = emphasisProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
     });
 
     tabs[0].click();
