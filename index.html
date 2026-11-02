@@ -151,11 +151,16 @@
             <h3 class="role-title">AI Intern</h3>
             <p class="role-org">Locust Walk</p>
             <p class="role-text">
-              Designed and built automation tools that streamline the firm's
-              research and data workflows, including a pipeline that pairs web
-              scraping with large language models to replace a fully manual CRM
-              contact research process. Also evaluated emerging AI and CRM
-              platforms to help guide the firm's broader technology strategy.
+              I built a Python pipeline that replaced the firm&rsquo;s manual
+              CRM contact research. For each target company it finds the
+              leadership and board pages, has the Claude API extract every
+              person and title from the page text, and checks each title
+              against a whitelist of the roles the business development team
+              actually tracks. Apollo then adds email and LinkedIn details,
+              and the output loads straight into the CRM. Across 211 firms it
+              found 2,042 contacts, roughly 72% of them new to the CRM, and
+              the team uses it today. I also evaluated CRM and enrichment
+              platforms to guide the firm&rsquo;s technology decisions.
             </p>
             <ul class="tags">
               <li>Python</li>
@@ -176,10 +181,17 @@
             <h3 class="role-title">Research Associate</h3>
             <p class="role-org">Worcester Polytechnic Institute</p>
             <p class="role-text">
-              Evaluated a range of large language model prompting strategies for
-              classifying medical images, benchmarking each against standard
-              performance metrics to identify the most reliable approach.
-              Presented the results at WPI's NSF REU research symposium.
+              I tested six prompting strategies, from Zero-Shot and Few-Shot
+              to Chain of Thought and Tree of Thought, for getting ChatGPT to
+              stage pressure wounds from photos, running each one across 1,091
+              images spanning four severity stages. A Python script scored
+              every strategy on accuracy, precision, recall and F1. Chain of
+              Thought, which has the model reason step by step before it
+              answers, came out ahead on all four, at 72.5% accuracy. To check
+              consistency I re-ran two images from each stage ten times, which
+              showed that small changes in prompt wording shift the answers
+              noticeably. I presented the work at WPI&rsquo;s NSF REU research
+              symposium.
             </p>
             <ul class="tags">
               <li>Prompt Engineering</li>
@@ -213,13 +225,21 @@
           <p class="card-num">01</p>
         </div>
         <h3 class="card-title">Unified Compensation Modeling Engine</h3>
-        <p class="card-meta">Graduate Qualifying Project &middot; Jan&ndash;May 2026</p>
+        <p class="card-meta">Graduate Qualifying Project &middot; <span class="card-dates">Jan 2026 &ndash; May 2026</span></p>
         <p class="card-text">
-          Partnered with a medical device company sponsor's Urology
-          Compensation Strategy team to modernize a manual, spreadsheet-based
-          compensation process into a centralized, rule-driven system. I helped
-          design the underlying data architecture and build a business-facing
-          interface for running and comparing plan scenarios.
+          Our four-person graduate team worked with a medical device
+          company&rsquo;s compensation strategy group to replace a
+          spreadsheet-based sales compensation process with a central,
+          rule-driven system. I designed the Snowflake data model: a star
+          schema with one central table of results per sales rep, product and
+          month, linked to tables describing territories, roles and products,
+          so a monthly figure and a quarterly rollup can never disagree.
+          Compensation rules are stored as versioned data instead of formulas
+          buried in spreadsheets, and a calculation engine applies them to
+          monthly, quarterly and annual payouts. I also built the Tableau
+          dashboard for comparing plan scenarios, alongside a Streamlit app
+          for entering inputs. The sponsor&rsquo;s team expects it to save
+          over 300 hours of work a year.
         </p>
         <ul class="tags">
           <li>Snowflake</li>
@@ -238,12 +258,19 @@
           <p class="card-num">02</p>
         </div>
         <h3 class="card-title">Edge-Based Smart Lock System</h3>
-        <p class="card-meta">Jan&ndash;May 2025</p>
+        <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
         <p class="card-text">
-          An embedded system on a Raspberry Pi that uses audio and visual
-          recognition to enable accessible, touch-free door unlocking. Most of
-          the work went into compressing and optimizing the models so they
-          could run efficiently on very limited hardware.
+          Our team built a door lock on a Raspberry Pi that opens when you say
+          a wake word and then sign a numeric code with your hand, so it works
+          without touching anything. Most of the work went into making the
+          models small and fast enough for that hardware. Post-training
+          quantization, which stores the model&rsquo;s weights as 8-bit
+          integers instead of 32-bit decimals, cut the wake word model from 79
+          KB to 25 KB and each prediction from 108 to 36 microseconds, while
+          accuracy went from 96.1% to 98.3%. We also compared pruning, weight
+          clustering and a fully binarized network, and wrote part of the
+          binarized network as Verilog hardware logic to estimate how much
+          faster a dedicated chip could run it.
         </p>
         <ul class="tags">
           <li>TensorFlow</li>
@@ -265,11 +292,18 @@
           <p class="card-num">03</p>
         </div>
         <h3 class="card-title">Multimodal Stock Movement Prediction</h3>
-        <p class="card-meta">Jan&ndash;May 2025</p>
+        <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
         <p class="card-text">
-          A hybrid deep learning model that combines financial news sentiment
-          with historical price data to predict stock price movement, exploring
-          whether fusing multiple data types beats either signal on its own.
+          A four-person course project testing whether financial news adds
+          real predictive signal to stock price movement beyond price history
+          alone. We scored news headlines with FinBERT, a language model
+          trained on financial text, and fed that sentiment alongside
+          price-based features into a dual-stream transformer, a model that
+          reads the two inputs separately before combining them. We compared
+          it against five other models, including an LSTM and a naive
+          baseline. The dual-stream model performed best, but our news data
+          covered only about 25 days, so the result needs a longer test window
+          before it can be trusted.
         </p>
         <ul class="tags">
           <li>PyTorch</li>

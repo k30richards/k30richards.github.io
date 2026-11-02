@@ -729,7 +729,7 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   outline: none;             /* focused by script on open, not by the visitor */
 }
 
-.popup-next,
+.popup-step,
 .popup-close {
   display: inline-flex;
   align-items: center;
@@ -745,9 +745,9 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   cursor: pointer;
   transition: border-color var(--speed) var(--ease), color var(--speed) var(--ease);
 }
-.popup-next { padding: 0 1em; letter-spacing: 0.06em; text-transform: uppercase; }
+.popup-step { padding: 0 1em; letter-spacing: 0.06em; text-transform: uppercase; }
 .popup-close { width: 2.75rem; }
-.popup-next:hover,
+.popup-step:hover,
 .popup-close:hover { border-color: var(--accent-2); color: var(--accent-2); }
 
 .popup-body {
@@ -769,7 +769,12 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   margin-bottom: var(--space-xs);
 }
 
-.popup-bio .lead { font-size: var(--step-1); }
+.popup-bio .lead {                 /* the bio reads as one even block of text */
+  font-family: inherit;
+  font-variation-settings: normal;
+  font-size: inherit;
+  line-height: inherit;
+}
 
 /* About: the facts as small tiles. */
 .popup-facts {
@@ -795,6 +800,7 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   color: var(--ink-faint);
 }
 .popup-fact-value { font-size: var(--step--1); line-height: 1.45; }
+.popup-fact-wide { grid-column: 1 / -1; }
 
 /* Experience and Projects: one tab per role or project. */
 /* Equal columns: side by side on computers, stacked on phones. */
@@ -805,9 +811,10 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 }
 .popup-tab {
   display: grid;
-  align-content: start;
+  align-content: space-between;  /* dates line up at the bottom of every tab */
+  gap: var(--space-2xs);
   text-align: left;
-  padding: 0.5em 1.1em;
+  padding: 0.6em 1.1em;
   font: inherit;
   line-height: 1.3;
   color: inherit;
@@ -817,7 +824,8 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   cursor: pointer;
   transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease);
 }
-.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ink-faint); }
+.popup-tab-name { font-weight: 500; }
+.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
 .popup-tab:hover { border-color: var(--ink-faint); }
 .popup-tab[aria-selected="true"] {
   border-color: var(--accent);
@@ -826,20 +834,10 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 .popup-tab[aria-selected="true"] .popup-tab-when { color: var(--accent-2); }
 
 .popup-tabpanel { display: grid; gap: var(--space-xs); padding-top: var(--space-s); }
-.popup-tabpanel-head { display: flex; align-items: center; gap: var(--space-xs); }
-.popup-tabpanel-head .card-icon { flex: none; }
 .popup-tabpanel-title {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
   font-size: var(--step-1);
-}
-.popup-tabpanel-sub { margin: 0; color: var(--ink-muted); }
-.popup-tabpanel-when {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
 }
 .popup-tabpanel .role-text,
 .popup-tabpanel .card-text { font-size: var(--step-0); }
@@ -876,6 +874,19 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
     justify-content: start;
     align-items: baseline;
     gap: var(--space-s);
+  }
+}
+
+/* On phones the arrows drop their Section names (they keep them as labels). */
+@media (max-width: 30rem) {
+  .popup-step { width: 2.75rem; padding: 0; }
+  .popup-step-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

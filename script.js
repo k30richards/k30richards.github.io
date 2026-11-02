@@ -430,6 +430,8 @@
      Sections of the full long page instead.
      ------------------------------------------------------------------------ */
 
+  var WIDE_FACT = 60;          // facts longer than this (characters) span a whole row
+
   var uid = 0;
 
   function within(scope, selector) {
@@ -452,11 +454,6 @@
   function newId(prefix) { return prefix + '-' + (++uid); }
 
   function textOf(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
-
-  function lastYear(text) {
-    var years = text.match(/\d{4}/g);
-    return years ? years[years.length - 1] : '';
-  }
 
   function appendClone(parent, node) {
     if (node) parent.appendChild(node.cloneNode(true));
@@ -528,11 +525,14 @@
       page.appendChild(text);
     }
 
+    // A long fact (like Seeking) gets a whole row instead of a narrow tile.
     var facts = el('ul', 'popup-facts');
     within(section, '.facts > div').forEach(function (row) {
       var item = el('li', 'popup-fact');
+      var value = textOf(row.querySelector('dd'));
+      if (value.length > WIDE_FACT) item.classList.add('popup-fact-wide');
       item.appendChild(el('span', 'popup-fact-label', textOf(row.querySelector('dt'))));
-      item.appendChild(el('span', 'popup-fact-value', textOf(row.querySelector('dd'))));
+      item.appendChild(el('span', 'popup-fact-value', value));
       facts.appendChild(item);
     });
     if (facts.children.length) page.appendChild(labelled('Quick facts', facts));
@@ -545,19 +545,15 @@
     }
   }
 
-  // Tabs named by employer; each shows the role in full.
+  // Tabs carry the employer and dates; the panel has the role title,
+  // the description and the skills.
   function buildExperience(section, page) {
     tabbed(page, 'Roles', within(section, '.role').map(function (role) {
-      var org = textOf(role.querySelector('.role-org'));
-      var dates = textOf(role.querySelector('.role-dates'));
       return {
-        name: org,
-        when: lastYear(dates),
+        name: textOf(role.querySelector('.role-org')),
+        when: textOf(role.querySelector('.role-dates')),
         fill: function (panel) {
           panel.appendChild(el('h3', 'popup-tabpanel-title', textOf(role.querySelector('.role-title'))));
-          panel.appendChild(el('p', 'popup-tabpanel-sub', org));
-          panel.appendChild(el('p', 'popup-tabpanel-when',
-            [dates, textOf(role.querySelector('.role-place'))].filter(Boolean).join(' · ')));
           appendClone(panel, role.querySelector('.role-text'));
           appendClone(panel, role.querySelector('.tags'));
         }
@@ -565,20 +561,14 @@
     }));
   }
 
-  // Tabs named by project title; each shows the project in full.
+  // Tabs carry the project title and dates; the panel has the
+  // description, the skills and any Source link.
   function buildProjects(section, page) {
     tabbed(page, 'Projects', within(section, '.card').map(function (card) {
-      var title = textOf(card.querySelector('.card-title'));
-      var meta = textOf(card.querySelector('.card-meta'));
       return {
-        name: title,
-        when: lastYear(meta),
+        name: textOf(card.querySelector('.card-title')),
+        when: textOf(card.querySelector('.card-dates')),
         fill: function (panel) {
-          var head = el('div', 'popup-tabpanel-head');
-          appendClone(head, card.querySelector('.card-icon'));
-          head.appendChild(el('h3', 'popup-tabpanel-title', title));
-          panel.appendChild(head);
-          if (meta) panel.appendChild(el('p', 'popup-tabpanel-when', meta));
           appendClone(panel, card.querySelector('.card-text'));
           appendClone(panel, card.querySelector('.tags'));
           appendClone(panel, card.querySelector('.card-links'));
@@ -613,8 +603,6 @@
     var heading = el('h2', 'popup-title');
     var headingNum = el('span', 'section-num');
     var headingName = el('span');
-    var next = button('popup-next');
-    var nextName = el('span');
     var close = button('popup-close');
     var body = el('div', 'popup-body');
     var live = el('p', 'visually-hidden');
@@ -627,14 +615,35 @@
     live.setAttribute('aria-live', 'polite');
     close.setAttribute('aria-label', 'Close');
     close.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-    next.appendChild(nextName);
-    next.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>');
+    // Previous and Next step through the Sections in order. Neither wraps
+    // around: the first Section has no Previous and the last has no Next.
+    var steps = [
+      { delta: -1, word: 'Previous', path: 'M19 12H5M11 6l-6 6 6 6' },
+      { delta: 1, word: 'Next', path: 'M5 12h14M13 6l6 6-6 6' }
+    ];
+    steps.forEach(function (step) {
+      var icon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + step.path + '"/></svg>';
+      step.button = button('popup-step');
+      step.name = el('span', 'popup-step-name');
+      step.button.appendChild(step.name);
+      step.button.insertAdjacentHTML(step.delta < 0 ? 'afterbegin' : 'beforeend', icon);
+      step.button.addEventListener('click', function () {
+        show(current + step.delta);
+        live.textContent = entries[current].name + ', ' + (current + 1) + ' of ' + entries.length;
+        // Focus stays on the arrow so it can be pressed again, unless it
+        // just disappeared at either end.
+        if (step.button.hidden) {
+          var other = steps[step.delta < 0 ? 1 : 0].button;
+          (other.hidden ? heading : other).focus();
+        }
+      });
+    });
 
     heading.appendChild(headingNum);
     heading.appendChild(document.createTextNode(' '));   // reads "02 Experience"
     heading.appendChild(headingName);
     bar.appendChild(heading);
-    if (entries.length > 1) bar.appendChild(next);
+    steps.forEach(function (step) { bar.appendChild(step.button); });
     bar.appendChild(close);
     entries.forEach(function (entry) { body.appendChild(entry.page); });
     card.appendChild(bar);
@@ -649,9 +658,13 @@
       entries.forEach(function (entry, k) { entry.page.hidden = k !== i; });
       headingNum.textContent = entries[i].num;
       headingName.textContent = entries[i].name;
-      var after = entries[wrap(i + 1, entries.length)];
-      nextName.textContent = after.name;
-      next.setAttribute('aria-label', 'Next: ' + after.name);
+      steps.forEach(function (step) {
+        var to = entries[i + step.delta];
+        step.button.hidden = !to;
+        if (!to) return;
+        step.name.textContent = to.name;
+        step.button.setAttribute('aria-label', step.word + ': ' + to.name);
+      });
       body.scrollTop = 0;
     }
 
@@ -663,13 +676,6 @@
       dialog.showModal();
       heading.focus();
     }
-
-    // Focus stays on the arrow so it can be pressed again; the live
-    // region says where it went.
-    next.addEventListener('click', function () {
-      show(wrap(current + 1, entries.length));
-      live.textContent = entries[current].name + ', ' + (current + 1) + ' of ' + entries.length;
-    });
 
     close.addEventListener('click', function () { dialog.close(); });
 

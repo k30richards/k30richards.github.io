@@ -35,7 +35,7 @@ One of the Hero's About, Experience and Projects buttons. Each opens its Section
 _Avoid_: Quick look, Hero nav, shortcuts
 
 **Section pop-up**:
-A dialog over the dimmed Hero showing one Section's content in full, with no "Read more". About is a single page; Experience and Projects have one tab per role or project. Its arrow moves to the next Section's pop-up, wrapping from Projects to About, and a link to `#about`, `#experience` or `#work` opens that pop-up on arrival. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
+A dialog over the dimmed Hero showing one Section's content in full, with no "Read more". About is a single page; Experience and Projects have one tab per role or project. Previous and Next arrows step through the Sections in order without wrapping (About has no Previous, Projects no Next), and a link to `#about`, `#experience` or `#work` opens that pop-up on arrival. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
 _Avoid_: Modal, lightbox, overlay
 
 ### Background
