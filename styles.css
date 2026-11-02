@@ -11,7 +11,8 @@
   --bg-raised:     #131a28;   /* raised surfaces (Panels, chips)             */
   --ink:           #e9eefb;   /* primary text (cool near-white)              */
   --ink-muted:     #97a5c0;   /* secondary text                              */
-  --ink-faint:     #57647f;   /* numbers, hairlines, quiet details           */
+  --ink-faint:     #57647f;   /* hairlines and outlines (not for text)       */
+  --ink-quiet:     #74839f;   /* quiet text, still 4.5:1 on the dark surfaces */
   --accent:        #4d9bff;   /* THE color - buttons, links, background nodes */
   --accent-ink:    #06121f;   /* text placed on top of --accent              */
   --accent-2:      #6fe3ff;   /* secondary pop - section numbers, highlights */
@@ -357,6 +358,16 @@ main {
   backdrop-filter: blur(var(--panel-blur));
 }
 
+/* A small cue over the Section buttons that they open panels. */
+.hero-label {
+  margin: 0 0 var(--space-2xs);
+  font-size: var(--step--1);
+  letter-spacing: 0.14em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
 /* The Section buttons: each opens its Section as a pop-up. */
 .hero-sections { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
@@ -431,7 +442,7 @@ main {
   font-size: var(--step--1);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
 }
 .facts dd { margin: 0; }
 
@@ -507,7 +518,7 @@ main {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
 }
 
 .role-what { display: grid; gap: var(--space-xs); }
@@ -591,7 +602,7 @@ main {
   font-size: var(--step--1);
   font-weight: 700;
   letter-spacing: 0.2em;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
   margin: 0;
 }
 
@@ -606,7 +617,7 @@ main {
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
 }
 
 .card-text {
@@ -681,6 +692,10 @@ main {
 }
 .viz > table + table { margin-top: var(--space-s); }
 
+/* The skills sit directly under the bold summary. */
+.role-text > .tags,
+.card-text > .tags { margin: 0 0 var(--space-s); }
+
 /* Flow diagrams (inline SVG). Highlighted boxes are the author's own work;
    dashed ones were built by teammates. */
 .viz svg { display: block; width: 100%; max-width: 26rem; height: auto; margin-inline: auto; }
@@ -703,7 +718,7 @@ main {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
 }
 .viz th { font-weight: 400; text-align: left; color: var(--ink-muted); }
 
@@ -878,7 +893,7 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-quiet);
 }
 .popup-fact-value { font-size: var(--step--1); line-height: 1.45; }
 .popup-fact-wide { grid-column: 1 / -1; }
@@ -906,7 +921,7 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease);
 }
 .popup-tab-name { font-weight: 500; }
-.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-quiet); }
 .popup-tab:hover { border-color: var(--ink-faint); }
 .popup-tab[aria-selected="true"] {
   border-color: var(--accent);
@@ -991,7 +1006,8 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   /* Keep the Hero's buttons above the fold on small phones. */
   .hero { padding-top: clamp(5.5rem, 14vh, 12rem); }
   html.popups .hero { padding-block: var(--space-xs); }   /* no top bar to clear */
-  .hero-contact { margin-top: var(--space-s); }
+  .chips { margin-bottom: var(--space-xs); }
+  .hero-contact { margin-top: var(--space-xs); }
   .hero-name,
   .hero-intro,
   .chips { margin-bottom: var(--space-s); }

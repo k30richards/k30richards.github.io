@@ -8,6 +8,23 @@
 <title>Kobe Richards — AI, ML &amp; Data Scientist</title>
 <meta name="description" content="Kobe Richards — AI, ML and data scientist in Boston, MA. LLMs, predictive modeling, and data engineering. B.S./M.S. Data Science, WPI 2026.">
 
+<!-- The tab icon, the phone's address-bar color, and the card shown when the link is shared. -->
+<meta name="theme-color" content="#0a0e17">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="assets/icon.png">
+<link rel="canonical" href="https://k30richards.github.io/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Kobe Richards">
+<meta property="og:title" content="Kobe Richards &mdash; AI, ML &amp; Data Scientist">
+<meta property="og:description" content="Kobe Richards — AI, ML and data scientist in Boston, MA. LLMs, predictive modeling, and data engineering. B.S./M.S. Data Science, WPI 2026.">
+<meta property="og:url" content="https://k30richards.github.io/">
+<meta property="og:image" content="https://k30richards.github.io/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Kobe Richards, AI, ML and data scientist in Boston, MA, over a field of connected blue nodes.">
+<meta name="twitter:card" content="summary_large_image">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -53,7 +70,8 @@
     </ul>
     <!-- Each button opens its Section as a pop-up, built from that
          Section's own content below (without JavaScript it jumps there). -->
-    <nav class="hero-sections" aria-label="Explore">
+    <p class="hero-label" id="explore-label">Explore</p>
+    <nav class="hero-sections" aria-labelledby="explore-label">
       <a class="btn" href="#about">About</a>
       <a class="btn" href="#experience">Experience</a>
       <a class="btn" href="#work">Projects</a>
@@ -161,6 +179,15 @@
                 and board members at target companies and prepares them to
                 load into the firm&rsquo;s CRM.
               </strong></p>
+              <ul class="tags">
+                <li>Python</li>
+                <li>LLMs &amp; AI Tooling</li>
+                <li>ETL</li>
+                <li>API Integration</li>
+                <li>Workflow Automation</li>
+                <li>CRM Systems</li>
+                <li>Technology Evaluation</li>
+              </ul>
               <p>
                 <span class="para-label">The problem</span>
                 The CRM&rsquo;s contact data was incomplete and going stale,
@@ -237,15 +264,6 @@
                 of working hours a year.
               </p>
             </div>
-            <ul class="tags">
-              <li>Python</li>
-              <li>LLMs &amp; AI Tooling</li>
-              <li>ETL</li>
-              <li>API Integration</li>
-              <li>Workflow Automation</li>
-              <li>CRM Systems</li>
-              <li>Technology Evaluation</li>
-            </ul>
           </div>
         </li>
 
@@ -265,6 +283,12 @@
                 identify the stage of a pressure wound from a photo, to find
                 out which is the most accurate and consistent.
               </strong></p>
+              <ul class="tags">
+                <li>Prompt Engineering</li>
+                <li>Applied AI Research</li>
+                <li>Medical Image Analysis</li>
+                <li>Python</li>
+              </ul>
               <p>
                 <span class="para-label">The problem</span>
                 Pressure injuries are staged by visual inspection, which is
@@ -313,12 +337,9 @@
                 symposium.
               </p>
             </div>
-            <ul class="tags">
-              <li>Prompt Engineering</li>
-              <li>Applied AI Research</li>
-              <li>Medical Image Analysis</li>
-              <li>Python</li>
-            </ul>
+            <p class="card-links">
+              <a href="assets/wpi-reu-poster.pdf" target="_blank" rel="noopener" aria-label="Research poster, PDF (opens in a new tab)">Research poster&nbsp;(PDF)&nbsp;&rarr;</a>
+            </p>
           </div>
         </li>
 
@@ -354,6 +375,12 @@
             compensation modeling with a rule-driven system in Snowflake, and
             I built the Tableau dashboards that present its results.
           </strong></p>
+          <ul class="tags">
+            <li>Snowflake</li>
+            <li>SQL</li>
+            <li>Tableau</li>
+            <li>Compensation Planning Analysis</li>
+          </ul>
           <p>
             <span class="para-label">The problem</span>
             The sponsor&rsquo;s compensation team designs sales incentive
@@ -435,12 +462,6 @@
             choosing one.
           </p>
         </div>
-        <ul class="tags">
-          <li>Snowflake</li>
-          <li>SQL</li>
-          <li>Tableau</li>
-          <li>Compensation Planning Analysis</li>
-        </ul>
       </article>
 
       <!-- ---- project card ---- -->
@@ -460,6 +481,12 @@
             hand-signed code, and I compressed its models so they run fast on
             a Raspberry Pi.
           </strong></p>
+          <ul class="tags">
+            <li>Model Optimization</li>
+            <li>TensorFlow</li>
+            <li>Embedded ML</li>
+            <li>Quantization &amp; Pruning</li>
+          </ul>
           <p>
             <span class="para-label">The problem</span>
             Keys and keypads do not work for everyone, including people with
@@ -525,13 +552,6 @@
             accuracy, and keeping int16 activations restored 98.3% at 28 KB.
           </p>
         </div>
-        <ul class="tags">
-          <li>Model Optimization</li>
-          <li>TensorFlow</li>
-          <li>Embedded ML</li>
-          <li>Quantization &amp; Pruning</li>
-          <li>Raspberry Pi</li>
-        </ul>
         <p class="card-links">
           <a href="https://github.com/TC4451/Wake_word_sign_digits">Source&nbsp;&rarr;</a>
         </p>
@@ -554,6 +574,14 @@
             history alone, and I built the price data work, the price-only
             models and the model that fuses news with prices.
           </strong></p>
+          <ul class="tags">
+            <li>PyTorch</li>
+            <li>Transformers</li>
+            <li>Multimodal Data Analysis</li>
+            <li>Time-Series Modeling</li>
+            <li>NLP</li>
+            <li>Model Evaluation</li>
+          </ul>
           <p>
             <span class="para-label">The problem</span>
             Most stock models look only at past prices. The question was
@@ -643,14 +671,6 @@
             trusted.
           </p>
         </div>
-        <ul class="tags">
-          <li>PyTorch</li>
-          <li>Transformers</li>
-          <li>Multimodal Data Analysis</li>
-          <li>Time-Series Modeling</li>
-          <li>NLP</li>
-          <li>Model Evaluation</li>
-        </ul>
         <p class="card-links">
           <a href="https://github.com/atiwari18/BuffERT">Source&nbsp;&rarr;</a>
         </p>
