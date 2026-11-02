@@ -7,23 +7,19 @@ Kobe Richards' personal portfolio site: one long page that introduces him, his e
 ### Page structure
 
 **Section**:
-One of the page's top-level blocks, read in order: the Hero, About, Experience, Projects, and Contact.
+One of the page's top-level blocks, read in order: the Hero, About, Experience, and Projects. (On `sandbox/section-popups` there is no Contact section; the contact links sit in the Hero.)
 _Avoid_: Panel, block, slide, page
 
 **Hero**:
-The opening Section with Kobe's name, his one-line intro, and the two calls to action. It is already on screen when the page loads.
+The opening Section with Kobe's name, his one-line intro, the chips, the Section buttons and his contact links. It is already on screen when the page loads, and once the Section pop-ups are built it is the whole page.
 _Avoid_: Header, banner, splash
 
 **Projects section**:
 The Section listing Kobe's projects, one Panel per project.
 _Avoid_: Work, Selected work
 
-**Contact section**:
-The closing Section with what roles he is open to and his contact links.
-_Avoid_: Footer
-
 **Panel**:
-A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content in About, Experience, Projects and Contact lives in a Panel. The Hero has no Panels: its content sits directly over the Constellation.
+A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content in About, Experience and Projects lives in a Panel. The Hero has no Panels: its content sits directly over the Constellation.
 _Avoid_: Card, box, tile, storage space
 
 **Toolkit**:
@@ -34,17 +30,13 @@ _Avoid_: Skills list, tech stack
 The vertical line in Experience that the role Panels hang off, in date order.
 _Avoid_: Roles list
 
-**Quick look**:
-The row of links in the Hero that open each Section as a Section pop-up. Without JavaScript they jump to the Section instead. (Sandbox experiment, `sandbox/section-popups` only.)
-_Avoid_: Hero nav, shortcuts
+**Section button**:
+One of the Hero's About, Experience and Projects buttons. Each opens its Section pop-up; without JavaScript it jumps to the Section on the long page instead. (Sandbox experiment, `sandbox/section-popups` only.)
+_Avoid_: Quick look, Hero nav, shortcuts
 
 **Section pop-up**:
-A dialog over the dimmed page showing one Section in compact form: a short summary first with "Read more" for the full text, plus that Section's controls (role tabs, topic chips, fact tiles). Its arrow moves to the next Section's pop-up, wrapping from Contact to About. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
+A dialog over the dimmed Hero showing one Section's content in full, with no "Read more". About is a single page; Experience and Projects have one tab per role or project. Its arrow moves to the next Section's pop-up, wrapping from Projects to About, and a link to `#about`, `#experience` or `#work` opens that pop-up on arrival. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
 _Avoid_: Modal, lightbox, overlay
-
-**Summary**:
-The short version of a long piece of text (the bio, a role, a project), kept beside it in a `<template class="summary">` and shown first in a Section pop-up.
-_Avoid_: Excerpt, blurb, TL;DR
 
 ### Background
 

@@ -357,7 +357,8 @@ main {
   backdrop-filter: blur(var(--panel-blur));
 }
 
-.hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+/* The Section buttons: each opens its Section as a pop-up. */
+.hero-sections { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
 .btn {
   display: inline-block;
@@ -374,40 +375,28 @@ main {
 }
 .btn:hover { transform: translateY(-2px); border-color: var(--ink); }
 
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 700;
-}
-.btn-primary:hover {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-  color: var(--ink);
-}
-
-/* Quick look: the row of links that open each Section as a pop-up. */
-.hero-explore {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-top: var(--space-m);
-}
-.hero-explore nav { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
-.hero-explore-label {
-  font-size: var(--step--1);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.btn-small {
-  padding: 0.6em 1.15em;
+.hero-sections .btn {
   background: var(--panel-bg);
   -webkit-backdrop-filter: blur(var(--panel-blur));
   backdrop-filter: blur(var(--panel-blur));
 }
+.hero-sections .btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+.hero-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-m);
+  margin: var(--space-m) 0 0;
+  font-size: var(--step--1);
+}
+.hero-contact a {
+  text-decoration: none;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+  transition: color var(--speed) var(--ease), border-color var(--speed) var(--ease);
+}
+.hero-contact a:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ==========================================================================
    About  -  bio Panel beside a column of the facts and Toolkit Panels
@@ -662,54 +651,24 @@ main {
 .card-links a:hover { border-bottom-color: currentColor; color: var(--accent-2); }
 
 /* ==========================================================================
-   Contact
-   ========================================================================== */
-
-.contact-panel {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-s);
-}
-
-.contact-line {
-  font-family: var(--font-display);
-  font-variation-settings: var(--wonk);
-  font-size: var(--step-1);
-  line-height: 1.3;
-  max-width: 40ch;
-  margin: 0;
-}
-
-.contact-mail {
-  font-size: var(--step-1);
-  overflow-wrap: anywhere;   /* only breaks if it genuinely cannot fit */
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 3px solid color-mix(in oklab, var(--accent) 35%, transparent);
-  transition: border-color var(--speed) var(--ease);
-}
-.contact-mail:hover { border-bottom-color: var(--accent); }
-
-.contact-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-m);
-  font-size: var(--step--1);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.contact-links a {
-  text-decoration: none;
-  color: var(--ink-muted);
-  transition: color var(--speed) var(--ease);
-}
-.contact-links a:hover { color: var(--accent); }
-
-/* ==========================================================================
    Section pop-ups  -  script.js builds one <dialog> from the Sections'
-   own content and opens it from the Hero's Quick look links. The dialog
-   covers the window and dims the page; the card inside holds the content.
+   own content and opens it from the Hero's Section buttons. Once it has,
+   the page is just the Hero (html.popups); without the script the full
+   long page shows instead. The dialog covers the window and dims the
+   Hero; the card inside holds the content.
    ========================================================================== */
+
+html.popups .topbar,
+html.popups .section { display: none; }
+
+html.popups .hero {
+  min-height: 100vh;
+  min-height: 100svh;        /* the Hero is the whole page */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: var(--space-l);
+}
 
 html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 
@@ -810,57 +769,25 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   margin-bottom: var(--space-xs);
 }
 
-/* Compact text with a "Read more" toggle. */
-.popup-more { display: grid; justify-items: start; gap: var(--space-xs); }
-.popup-summary { margin: 0; }
-.popup-full .lead { font-size: var(--step-1); }
+.popup-bio .lead { font-size: var(--step-1); }
 
-.popup-toggle,
-.popup-chip,
-.popup-tab,
-.popup-fact-toggle {
-  font: inherit;
-  color: inherit;
-  background: none;
-  cursor: pointer;
-}
-
-.popup-toggle {
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid currentColor;
-  font-size: var(--step--1);
-  font-weight: 500;
-  color: var(--accent);
-}
-.popup-toggle::after { content: " \25BE"; }
-.popup-toggle[aria-expanded="true"]::after { content: " \25B4"; }
-.popup-toggle:hover { color: var(--accent-2); }
-
-/* About: quick facts as tiles; the long ones open on a tap. */
+/* About: the facts as small tiles. */
 .popup-facts {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: var(--space-2xs);
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
 }
-.popup-fact > *,
-.popup-fact-toggle {
+.popup-fact {
   display: grid;
   align-content: start;
   gap: 0.2rem;
-  height: 100%;
-  width: 100%;
-  text-align: left;
   padding: var(--space-xs);
   border: var(--border);
   border-radius: var(--radius-sm);
 }
-.popup-fact-toggle:hover { border-color: var(--ink-faint); }
-.popup-fact-toggle[aria-expanded="true"] { border-color: var(--accent); }
-.popup-fact:has([aria-expanded="true"]) { grid-column: 1 / -1; }
 .popup-fact-label {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
@@ -868,79 +795,55 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   color: var(--ink-faint);
 }
 .popup-fact-value { font-size: var(--step--1); line-height: 1.45; }
-.popup-fact-toggle .popup-fact-value {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-}
-.popup-fact-toggle[aria-expanded="true"] .popup-fact-value { display: block; }
-.popup-fact-toggle .popup-fact-label::after { content: " \25BE"; }
-.popup-fact-toggle[aria-expanded="true"] .popup-fact-label::after { content: " \25B4"; }
 
-/* Experience: one tab per role. Projects: one chip per topic. */
-.popup-tabs,
-.popup-filters {
-  display: flex;
-  flex-wrap: wrap;
+/* Experience and Projects: one tab per role or project. */
+/* Equal columns: side by side on computers, stacked on phones. */
+.popup-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
   gap: var(--space-2xs);
-}
-.popup-tab,
-.popup-chip {
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease),
-              color var(--speed) var(--ease);
 }
 .popup-tab {
   display: grid;
+  align-content: start;
   text-align: left;
   padding: 0.5em 1.1em;
+  font: inherit;
   line-height: 1.3;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease);
 }
 .popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ink-faint); }
-.popup-tab:hover,
-.popup-chip:hover { border-color: var(--ink-faint); }
-.popup-tab[aria-selected="true"],
-.popup-chip[aria-pressed="true"] {
+.popup-tab:hover { border-color: var(--ink-faint); }
+.popup-tab[aria-selected="true"] {
   border-color: var(--accent);
   background: color-mix(in oklab, var(--accent) 18%, transparent);
 }
 .popup-tab[aria-selected="true"] .popup-tab-when { color: var(--accent-2); }
 
-.popup-role { display: grid; gap: var(--space-xs); padding-top: var(--space-s); }
-.popup-role-title,
-.popup-project-title {
+.popup-tabpanel { display: grid; gap: var(--space-xs); padding-top: var(--space-s); }
+.popup-tabpanel-head { display: flex; align-items: center; gap: var(--space-xs); }
+.popup-tabpanel-head .card-icon { flex: none; }
+.popup-tabpanel-title {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
   font-size: var(--step-1);
 }
-.popup-role-org { margin: 0; color: var(--ink-muted); }
-.popup-role-when,
-.popup-project-meta {
+.popup-tabpanel-sub { margin: 0; color: var(--ink-muted); }
+.popup-tabpanel-when {
   margin: 0;
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-
-.popup-chip { padding: 0.4em 1em; font-size: var(--step--1); }
-.popup-count { margin: var(--space-xs) 0 0; font-size: var(--step--1); color: var(--ink-faint); }
-.popup-project-list { display: grid; gap: var(--space-s); }
-.popup-project {
-  display: grid;
-  gap: var(--space-xs);
-  padding: var(--space-s);
-  border: var(--border);
-  border-radius: var(--radius-sm);
-}
-.popup-project-head { display: flex; align-items: center; gap: var(--space-xs); }
-.popup-project .card-icon { flex: none; }
-.popup-project .card-links { margin: 0; }
-
-.popup-contact { display: grid; justify-items: start; gap: var(--space-s); }
+.popup-tabpanel .role-text,
+.popup-tabpanel .card-text { font-size: var(--step-0); }
+.popup-tabpanel .card-links { margin: 0; }
 
 @keyframes popup-fade { from { opacity: 0; } }
 @keyframes popup-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }

@@ -4,7 +4,7 @@
      2. the scroll-linked Reveal of Panels and Section headings,
      3. the Timeline line in Experience,
      4. the Active Section highlight and the progress line in the top bar,
-     5. the Section pop-ups opened from the Hero's Quick look links.
+     5. the Section pop-ups opened from the Hero's Section buttons.
 
    Everything here is an enhancement. Without it the page is complete and
    static, and with reduced motion only the top bar state is kept.
@@ -422,14 +422,13 @@
 
   /* ------------------------------------------------------------------------
      5. Section pop-ups
-     Each Quick look link in the Hero opens its Section in one shared
+     Each Section button in the Hero opens its Section in one shared
      <dialog>, built here from the Section's own content, so everything is
-     still edited in one place in index.html. Long text shows its
-     <template class="summary"> first, with a "Read more" toggle. Without
-     the script, or in a browser with no <dialog>, the links just jump.
+     still edited in one place in index.html. Once the pop-ups are built
+     the page is just the Hero (html.popups in styles.css). Without the
+     script, or in a browser with no <dialog>, the buttons jump to the
+     Sections of the full long page instead.
      ------------------------------------------------------------------------ */
-
-  var FACT_CLAMP = 40;         // facts longer than this (characters) start clamped
 
   var uid = 0;
 
@@ -444,8 +443,8 @@
     return e;
   }
 
-  function button(className, text) {
-    var b = el('button', className, text);
+  function button(className) {
+    var b = el('button', className);
     b.type = 'button';
     return b;
   }
@@ -454,41 +453,13 @@
 
   function textOf(node) { return node ? node.textContent.replace(/\s+/g, ' ').trim() : ''; }
 
-  function summaryOf(scope) {
-    var t = scope.querySelector('template.summary');
-    return t ? textOf(t.content) : '';
+  function lastYear(text) {
+    var years = text.match(/\d{4}/g);
+    return years ? years[years.length - 1] : '';
   }
 
   function appendClone(parent, node) {
     if (node) parent.appendChild(node.cloneNode(true));
-  }
-
-  // The summary, with a toggle that swaps it for the full text.
-  function expandable(summary, fullNodes) {
-    var box = el('div', 'popup-more');
-    var full = el('div', 'popup-full');
-    fullNodes.forEach(function (n) { appendClone(full, n); });
-    if (!summary) {
-      box.appendChild(full);
-      return box;
-    }
-    var short = el('p', 'popup-summary', summary);
-    var toggle = button('popup-toggle', 'Read more');
-    full.id = newId('popup-full');
-    full.hidden = true;
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-controls', full.id);
-    toggle.addEventListener('click', function () {
-      var open = toggle.getAttribute('aria-expanded') !== 'true';
-      toggle.setAttribute('aria-expanded', String(open));
-      toggle.textContent = open ? 'Show less' : 'Read more';
-      short.hidden = open;
-      full.hidden = !open;
-    });
-    box.appendChild(short);
-    box.appendChild(full);
-    box.appendChild(toggle);
-    return box;
   }
 
   function labelled(text, content) {
@@ -498,71 +469,29 @@
     return box;
   }
 
-  function buildAbout(section, page) {
-    var bio = section.querySelector('.about-body');
-    if (bio) page.appendChild(expandable(summaryOf(bio), within(bio, 'p')));
-
-    // Quick facts as tiles; a long one is a button that unclamps it.
-    var facts = el('ul', 'popup-facts');
-    within(section, '.facts > div').forEach(function (row) {
-      var item = el('li', 'popup-fact');
-      var label = el('span', 'popup-fact-label', textOf(row.querySelector('dt')));
-      var value = el('span', 'popup-fact-value', textOf(row.querySelector('dd')));
-      var tile = value.textContent.length > FACT_CLAMP ? button('popup-fact-toggle') : el('div');
-      if (tile.type === 'button') {
-        tile.setAttribute('aria-expanded', 'false');
-        tile.addEventListener('click', function () {
-          tile.setAttribute('aria-expanded', String(tile.getAttribute('aria-expanded') !== 'true'));
-        });
-      }
-      tile.appendChild(label);
-      tile.appendChild(value);
-      item.appendChild(tile);
-      facts.appendChild(item);
-    });
-    if (facts.children.length) page.appendChild(labelled('Quick facts', facts));
-
-    var groups = within(section, '.toolkit-group');
-    if (groups.length) {
-      var toolkit = el('div');
-      groups.forEach(function (g) { appendClone(toolkit, g); });
-      page.appendChild(labelled('Toolkit', toolkit));
-    }
-  }
-
-  // One tab per role, following the ARIA tabs pattern: arrow keys, Home
+  // One tab per item, following the ARIA tabs pattern: arrow keys, Home
   // and End move between tabs, and only the selected tab is in Tab order.
-  function buildExperience(section, page) {
-    var roles = within(section, '.role');
-    if (!roles.length) return;
+  // Each item is {name, when, fill(panel)}.
+  function tabbed(page, label, items) {
+    if (!items.length) return;
     var list = el('div', 'popup-tabs');
     list.setAttribute('role', 'tablist');
-    list.setAttribute('aria-label', 'Roles');
+    list.setAttribute('aria-label', label);
     page.appendChild(list);
 
     var tabs = [], panels = [];
-    roles.forEach(function (role) {
+    items.forEach(function (item) {
       var tab = button('popup-tab');
-      var panel = el('div', 'popup-role');
+      var panel = el('div', 'popup-tabpanel');
       tab.id = newId('popup-tab');
-      panel.id = newId('popup-role');
+      panel.id = newId('popup-tabpanel');
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-controls', panel.id);
       panel.setAttribute('role', 'tabpanel');
       panel.setAttribute('aria-labelledby', tab.id);
-
-      var org = textOf(role.querySelector('.role-org'));
-      var dates = textOf(role.querySelector('.role-dates'));
-      var years = dates.match(/\d{4}/g) || [''];
-      tab.appendChild(el('span', 'popup-tab-org', org));
-      tab.appendChild(el('span', 'popup-tab-when', years[years.length - 1]));
-
-      panel.appendChild(el('h3', 'popup-role-title', textOf(role.querySelector('.role-title'))));
-      panel.appendChild(el('p', 'popup-role-org', org));
-      panel.appendChild(el('p', 'popup-role-when',
-        [dates, textOf(role.querySelector('.role-place'))].filter(Boolean).join(' · ')));
-      panel.appendChild(expandable(summaryOf(role), within(role, '.role-text')));
-      appendClone(panel, role.querySelector('.tags'));
+      tab.appendChild(el('span', 'popup-tab-name', item.name));
+      if (item.when) tab.appendChild(el('span', 'popup-tab-when', item.when));
+      item.fill(panel);
 
       tab.addEventListener('click', function () { select(tabs.indexOf(tab)); });
       tabs.push(tab);
@@ -591,87 +520,74 @@
     select(0);
   }
 
-  // Topic chips over a list of compact projects. Topics come from each
-  // project's data-topics, most-used first; "All" shows everything.
-  function buildProjects(section, page) {
-    var cards = within(section, '.card');
-    if (!cards.length) return;
-
-    var counts = {}, topics = [];
-    var cardTopics = cards.map(function (card) {
-      return (card.getAttribute('data-topics') || '').split(',').map(function (t) {
-        t = t.trim();
-        if (t && !counts[t]) { counts[t] = 0; topics.push(t); }
-        if (t) counts[t]++;
-        return t;
-      }).filter(Boolean);
-    });
-    topics = topics.map(function (t, i) { return { name: t, order: i }; })
-      .sort(function (a, b) { return counts[b.name] - counts[a.name] || a.order - b.order; })
-      .map(function (t) { return t.name; });
-
-    var items = cards.map(function (card) {
-      var item = el('article', 'popup-project');
-      var head = el('div', 'popup-project-head');
-      appendClone(head, card.querySelector('.card-icon'));
-      var titles = el('div');
-      titles.appendChild(el('h3', 'popup-project-title', textOf(card.querySelector('.card-title'))));
-      var meta = textOf(card.querySelector('.card-meta'));
-      if (meta) titles.appendChild(el('p', 'popup-project-meta', meta));
-      head.appendChild(titles);
-      item.appendChild(head);
-      item.appendChild(expandable(summaryOf(card), within(card, '.card-text')));
-      appendClone(item, card.querySelector('.tags'));
-      appendClone(item, card.querySelector('.card-links'));
-      return item;
-    });
-
-    if (topics.length) {
-      var filters = el('div', 'popup-filters');
-      filters.setAttribute('role', 'group');
-      filters.setAttribute('aria-label', 'Filter projects by topic');
-      var count = el('p', 'popup-count');
-      count.setAttribute('aria-live', 'polite');
-      var chips = [];
-
-      var show = function (topic) {
-        chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c.textContent === topic)); });
-        var shown = 0;
-        items.forEach(function (item, i) {
-          item.hidden = topic !== 'All' && cardTopics[i].indexOf(topic) < 0;
-          if (!item.hidden) shown++;
-        });
-        count.textContent = topic === 'All' ? 'All ' + items.length + ' projects' :
-          shown + ' of ' + items.length + ' projects: ' + topic;
-      };
-
-      ['All'].concat(topics).forEach(function (topic) {
-        var chip = button('popup-chip', topic);
-        chip.addEventListener('click', function () { show(topic); });
-        chips.push(chip);
-        filters.appendChild(chip);
-      });
-      var top = el('div');
-      top.appendChild(filters);
-      top.appendChild(count);
-      page.appendChild(top);
-      show('All');
+  function buildAbout(section, page) {
+    var bio = section.querySelector('.about-body');
+    if (bio) {
+      var text = el('div', 'popup-bio');
+      within(bio, 'p').forEach(function (p) { appendClone(text, p); });
+      page.appendChild(text);
     }
 
-    var list = el('div', 'popup-project-list');
-    items.forEach(function (item) { list.appendChild(item); });
-    page.appendChild(list);
-  }
-
-  function buildContact(section, page) {
-    var box = el('div', 'popup-contact');
-    ['.contact-line', '.contact-mail', '.contact-links'].forEach(function (s) {
-      appendClone(box, section.querySelector(s));
+    var facts = el('ul', 'popup-facts');
+    within(section, '.facts > div').forEach(function (row) {
+      var item = el('li', 'popup-fact');
+      item.appendChild(el('span', 'popup-fact-label', textOf(row.querySelector('dt'))));
+      item.appendChild(el('span', 'popup-fact-value', textOf(row.querySelector('dd'))));
+      facts.appendChild(item);
     });
-    page.appendChild(box);
+    if (facts.children.length) page.appendChild(labelled('Quick facts', facts));
+
+    var groups = within(section, '.toolkit-group');
+    if (groups.length) {
+      var toolkit = el('div');
+      groups.forEach(function (g) { appendClone(toolkit, g); });
+      page.appendChild(labelled('Toolkit', toolkit));
+    }
   }
 
-  var builders = { about: buildAbout, experience: buildExperience, work: buildProjects, contact: buildContact };
+  // Tabs named by employer; each shows the role in full.
+  function buildExperience(section, page) {
+    tabbed(page, 'Roles', within(section, '.role').map(function (role) {
+      var org = textOf(role.querySelector('.role-org'));
+      var dates = textOf(role.querySelector('.role-dates'));
+      return {
+        name: org,
+        when: lastYear(dates),
+        fill: function (panel) {
+          panel.appendChild(el('h3', 'popup-tabpanel-title', textOf(role.querySelector('.role-title'))));
+          panel.appendChild(el('p', 'popup-tabpanel-sub', org));
+          panel.appendChild(el('p', 'popup-tabpanel-when',
+            [dates, textOf(role.querySelector('.role-place'))].filter(Boolean).join(' · ')));
+          appendClone(panel, role.querySelector('.role-text'));
+          appendClone(panel, role.querySelector('.tags'));
+        }
+      };
+    }));
+  }
+
+  // Tabs named by project title; each shows the project in full.
+  function buildProjects(section, page) {
+    tabbed(page, 'Projects', within(section, '.card').map(function (card) {
+      var title = textOf(card.querySelector('.card-title'));
+      var meta = textOf(card.querySelector('.card-meta'));
+      return {
+        name: title,
+        when: lastYear(meta),
+        fill: function (panel) {
+          var head = el('div', 'popup-tabpanel-head');
+          appendClone(head, card.querySelector('.card-icon'));
+          head.appendChild(el('h3', 'popup-tabpanel-title', title));
+          panel.appendChild(head);
+          if (meta) panel.appendChild(el('p', 'popup-tabpanel-when', meta));
+          appendClone(panel, card.querySelector('.card-text'));
+          appendClone(panel, card.querySelector('.tags'));
+          appendClone(panel, card.querySelector('.card-links'));
+        }
+      };
+    }));
+  }
+
+  var builders = { about: buildAbout, experience: buildExperience, work: buildProjects };
 
   function buildPopups(links) {
     var entries = [];
@@ -685,7 +601,7 @@
       page.hidden = true;
       build(section, page);
       entries.push({
-        link: a, page: page, num: num,
+        link: a, page: page, num: num, hash: '#' + section.id,
         name: title ? textOf(title).replace(num, '').trim() : textOf(a)
       });
     });
@@ -726,6 +642,7 @@
     dialog.appendChild(card);
     dialog.appendChild(live);
     document.body.appendChild(dialog);
+    root.classList.add('popups');
 
     function show(i) {
       current = i;
@@ -797,9 +714,14 @@
         open(i, entry.link);
       });
     });
+
+    // A shared link like ".../#experience" opens that Section's pop-up.
+    entries.forEach(function (entry, i) {
+      if (location.hash === entry.hash) open(i, entry.link);
+    });
   }
 
   if (window.HTMLDialogElement && typeof HTMLDialogElement.prototype.showModal === 'function') {
-    buildPopups(all('.hero-explore a[href^="#"]'));
+    buildPopups(all('.hero-sections a[href^="#"]'));
   }
 }());
