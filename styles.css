@@ -1,20 +1,21 @@
 /* ==========================================================================
    RETHEME HERE
    Everything visual is driven by the variables in this one block.
-   Change a handful and the whole site follows.
+   Change a handful and the whole site follows - the Constellation
+   background reads its colors from here too.
    ========================================================================== */
 
 :root {
   /* --- Colors ------------------------------------------------------------ */
   --bg:            #0a0e17;   /* page background (cool near-black)           */
-  --bg-raised:     #131a28;   /* cards, raised surfaces                      */
-  --bg-sunken:     #060911;   /* footer, wells                               */
+  --bg-raised:     #131a28;   /* raised surfaces                             */
+  --bg-sunken:     #060911;   /* wells                                       */
   --ink:           #e9eefb;   /* primary text (cool near-white)              */
   --ink-muted:     #97a5c0;   /* secondary text                              */
   --ink-faint:     #57647f;   /* numbers, hairlines, quiet details           */
-  --accent:        #4d9bff;   /* THE color - buttons, links, highlights      */
+  --accent:        #4d9bff;   /* THE color - buttons, links, background nodes */
   --accent-ink:    #06121f;   /* text placed on top of --accent              */
-  --accent-2:      #6fe3ff;   /* secondary pop - section numbers, hovers     */
+  --accent-2:      #6fe3ff;   /* secondary pop - section numbers, highlights */
   --rule:          #212c42;   /* border / divider color                      */
 
   /* --- Type -------------------------------------------------------------- */
@@ -42,18 +43,21 @@
   --page-max:  74rem;         /* max width of the layout                     */
   --gutter:    clamp(1.25rem, 5vw, 4rem);
 
-  --radius:    14px;
+  --radius:    16px;
   --radius-sm: 8px;
   --border:    1px solid var(--rule);
   --ease:      cubic-bezier(0.2, 0.7, 0.3, 1);
   --speed:     220ms;
 
-  /* --- Section transitions (3D tilt as sections scroll in and out) ------ */
-  --tilt:       10deg;        /* how far a section leans while moving        */
-  --tilt-scale: 0.94;         /* its size at the start of entry / end of exit */
-  --tilt-fade:  0.35;         /* its opacity at those same points            */
-  --tilt-rise:  3rem;         /* how far below its place it starts           */
-  --tilt-depth: 1200px;       /* perspective; smaller = more dramatic        */
+  /* --- Panels (frosted glass over the Constellation) --------------------- */
+  --panel-bg:   rgba(19, 26, 40, 0.6);  /* --bg-raised at 60%; raise the last
+                                           number to hide more background  */
+  --panel-blur: 6px;                    /* softens the lines behind a Panel */
+  --bar-bg:     rgba(10, 14, 23, 0.72); /* the fixed top bar                */
+
+  /* --- Motion ------------------------------------------------------------ */
+  --reveal-distance: 20px;    /* how far below its place a Panel starts      */
+  --depth-drift:     0.1;     /* background moves at this fraction of scroll */
 }
 
 /* ==========================================================================
@@ -62,7 +66,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;  /* anchor jumps land below the fixed top bar   */
+}
 
 body {
   margin: 0;
@@ -125,14 +133,31 @@ img { max-width: 100%; display: block; }
 .skip:focus { left: var(--gutter); z-index: 10000; }
 
 /* ==========================================================================
+   Constellation  -  the animated background, fixed behind everything.
+   script.js draws it; with scripts off the page background shows instead.
+   ========================================================================== */
+
+#constellation {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;      /* decoration only; never takes a click */
+}
+
+main {
+  position: relative;
+  z-index: 1;                /* content sits above the Constellation */
+}
+
+/* ==========================================================================
    Layout primitives
    ========================================================================== */
 
-.topbar,
+.topbar nav,
 .hero,
-.section,
-.footer-inner,
-.colophon {
+.section {
   width: min(100% - var(--gutter) * 2, var(--page-max));
   margin-inline: auto;
 }
@@ -158,25 +183,62 @@ img { max-width: 100%; display: block; }
 }
 
 /* ==========================================================================
-   Top bar
+   Panels  -  every piece of content in a Section sits in one
+   ========================================================================== */
+
+.panel {
+  position: relative;
+  padding: var(--space-m);
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.panel-label {
+  font-family: var(--font-body);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: var(--space-s);
+}
+
+/* ==========================================================================
+   Reveal  -  Panels and Section headings fade in and rise into place as
+   they scroll into view. script.js sets --reveal from 0 to 1 by scroll
+   position, so it reverses when you scroll back. Without the script, or
+   with reduced motion, --reveal is never set and everything shows at 1.
+   ========================================================================== */
+
+.panel,
+.section-title {
+  opacity: var(--reveal, 1);
+  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance)));
+}
+
+/* ==========================================================================
+   Top bar  -  fixed, with the Active Section highlighted and a progress line
    ========================================================================== */
 
 .topbar {
-  display: flex;
-  flex-wrap: wrap;           /* nav wraps rather than clipping when cramped  */
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-s);
-  padding-block: var(--space-s);
-  /* Above the hero: its exit animation makes it a stacking context, which
-     would otherwise lift its glow over the nav. */
-  position: relative;
-  z-index: 1;
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: var(--border);
 }
 
 .topbar nav {
   display: flex;
+  flex-wrap: wrap;           /* nav wraps rather than clipping when cramped  */
+  justify-content: flex-end;
   gap: clamp(var(--space-xs), 3vw, var(--space-m));
+  padding-block: var(--space-s);
   font-size: var(--step--1);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -190,6 +252,19 @@ img { max-width: 100%; display: block; }
   transition: color var(--speed) var(--ease), border-color var(--speed) var(--ease);
 }
 .topbar nav a:hover { color: var(--ink); border-bottom-color: var(--accent); }
+.topbar nav a[aria-current] { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+
+/* How far down the page you are; script.js sets --progress from 0 to 1. */
+.scroll-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transform-origin: 0 50%;
+  transform: scaleX(var(--progress, 0));
+}
 
 /* ==========================================================================
    Hero
@@ -197,7 +272,7 @@ img { max-width: 100%; display: block; }
 
 .hero {
   position: relative;
-  padding-block: clamp(var(--space-l), 12vh, var(--space-2xl)) var(--space-2xl);
+  padding-block: clamp(7rem, 18vh, 12rem) var(--space-2xl);
 }
 
 /* Soft accent glow sitting behind the name. */
@@ -240,6 +315,25 @@ img { max-width: 100%; display: block; }
   color: var(--ink);
 }
 
+/* Headline facts under the intro. */
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-m);
+  padding: 0;
+}
+.chips li {
+  font-size: var(--step--1);
+  padding: 0.4em 1em;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
+}
+
 .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
 .btn {
@@ -270,53 +364,77 @@ img { max-width: 100%; display: block; }
 }
 
 /* ==========================================================================
-   About
+   About  -  bio Panel beside a column of the facts and Toolkit Panels
    ========================================================================== */
 
 .about-grid {
   display: grid;
-  gap: var(--space-l);
+  gap: var(--space-s);
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   align-items: start;
 }
+
+.about-side { display: grid; gap: var(--space-s); }
 
 .lead {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
   font-size: var(--step-1);
   line-height: 1.4;
-  color: var(--ink);
 }
-
-.about-body p + p { color: var(--ink-muted); }
 
 .facts { margin: 0; display: grid; gap: 0; }
 .facts > div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-s);
+  display: grid;
+  gap: var(--space-2xs);
   padding-block: var(--space-xs);
   border-bottom: var(--border);
 }
-.facts > div:first-child { border-top: var(--border); }
+.facts > div:first-child { padding-top: 0; }
+.facts > div:last-child { padding-bottom: 0; border-bottom: 0; }
 .facts dt {
   font-size: var(--step--1);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.facts dd { margin: 0; text-align: right; }
+.facts dd { margin: 0; }
+
+.toolkit-group + .toolkit-group { margin-top: var(--space-s); }
+.toolkit-name {
+  margin-bottom: var(--space-2xs);
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
 
 /* ==========================================================================
-   Experience  -  each <li class="role"> is a dates column + a details column
+   Experience  -  the Timeline: a line down the left, one Panel per role.
+   script.js sets --drawn from 0 to 1 so the line draws in as you scroll.
    ========================================================================== */
+
+.timeline {
+  position: relative;
+  padding-left: var(--space-l);
+}
+
+.timeline-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--space-s) - 1px);
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--accent), var(--accent-2));
+  transform-origin: 50% 0;
+  transform: scaleY(var(--drawn, 1));
+}
 
 .roles {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-l);
+  gap: var(--space-m);
 }
 
 .role {
@@ -324,8 +442,19 @@ img { max-width: 100%; display: block; }
   grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
   gap: var(--space-m);
   align-items: start;
-  padding-top: var(--space-m);
-  border-top: var(--border);
+}
+
+/* The marker on the Timeline beside each role. */
+.role::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-m) + 0.3rem);
+  left: calc(var(--space-s) - var(--space-l) - 7px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--accent-2);
 }
 
 .role-when { display: grid; gap: var(--space-2xs); }
@@ -359,18 +488,17 @@ img { max-width: 100%; display: block; }
 .role-org {
   margin: calc(var(--space-xs) * -1) 0 0;
   font-size: var(--step-0);
-  color: var(--ink);
+  color: var(--ink-muted);
 }
 
 .role-text {
   margin: 0;
-  color: var(--ink-muted);
   font-size: var(--step--1);
   line-height: 1.65;
 }
 
 /* ==========================================================================
-   Projects grid  -  cards are self-contained; add as many as you like
+   Projects grid  -  one Panel per project; add as many as you like
    ========================================================================== */
 
 .grid {
@@ -380,16 +508,11 @@ img { max-width: 100%; display: block; }
 }
 
 .card {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-m) var(--space-s) var(--space-s);
-  background: var(--bg-raised);
-  border: var(--border);
-  border-radius: var(--radius);
   overflow: hidden;
-  transition: transform var(--speed) var(--ease), border-color var(--speed) var(--ease);
+  transition: border-color var(--speed) var(--ease);
 }
 
 /* Accent rule that wipes across the top edge on hover. */
@@ -403,9 +526,31 @@ img { max-width: 100%; display: block; }
   transform-origin: left;
   transition: transform var(--speed) var(--ease);
 }
-.card:hover { transform: translateY(-4px); border-color: var(--ink-faint); }
+/* The hover lift adds to the Reveal offset rather than replacing it. */
+.card:hover {
+  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance) - 4px));
+  border-color: var(--ink-faint);
+}
 .card:hover::before,
 .card:focus-within::before { transform: scaleX(1); }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2xs);
+}
+
+/* Small icon for the project's domain - swap the <svg> inside freely. */
+.card-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  background: rgba(77, 155, 255, 0.14);
+  color: var(--accent-2);
+}
 
 .card-num {
   font-size: var(--step--1);
@@ -422,7 +567,7 @@ img { max-width: 100%; display: block; }
 
 /* Small dateline under a project title. Delete the <p> to drop it. */
 .card-meta {
-  margin: calc(var(--space-xs) * -1) 0 0;
+  margin: 0;
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -430,7 +575,6 @@ img { max-width: 100%; display: block; }
 }
 
 .card-text {
-  color: var(--ink-muted);
   font-size: var(--step--1);
   line-height: 1.6;
   margin: 0;
@@ -472,169 +616,65 @@ img { max-width: 100%; display: block; }
 .card-links a:hover { border-bottom-color: currentColor; color: var(--accent-2); }
 
 /* ==========================================================================
-   Footer
+   Contact
    ========================================================================== */
 
-.footer {
-  background: var(--bg-sunken);
-  border-top: var(--border);
-  padding-block: var(--space-xl) var(--space-m);
-  margin-top: var(--space-l);
-}
-
-.footer-inner {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-l);
-  justify-content: space-between;
-  align-items: flex-end;
-  padding-bottom: var(--space-l);
-  border-bottom: var(--border);
-}
-
-.footer-cta {
+.contact-panel {
   display: grid;
   justify-items: start;
   gap: var(--space-s);
 }
 
-.footer-line {
+.contact-line {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
-  font-size: var(--step-2);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-  max-width: 26ch;           /* measure for the sentence only, not the email */
+  font-size: var(--step-1);
+  line-height: 1.3;
+  max-width: 40ch;
   margin: 0;
 }
 
-.footer-mail {
+.contact-mail {
   font-size: var(--step-1);
-  overflow-wrap: break-word; /* only breaks if it genuinely cannot fit */
+  overflow-wrap: anywhere;   /* only breaks if it genuinely cannot fit */
   color: var(--accent);
   text-decoration: none;
-  border-bottom: 3px solid color-mix(in oklab, var(--accent) 35%, transparent);
+  border-bottom: 3px solid rgba(77, 155, 255, 0.35);
   transition: border-color var(--speed) var(--ease);
 }
-.footer-mail:hover { border-bottom-color: var(--accent); }
+.contact-mail:hover { border-bottom-color: var(--accent); }
 
-.footer-links {
-  display: grid;
-  gap: var(--space-2xs);
+.contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-m);
   font-size: var(--step--1);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-align: right;
 }
-.footer-links a {
+.contact-links a {
   text-decoration: none;
   color: var(--ink-muted);
   transition: color var(--speed) var(--ease);
 }
-.footer-links a:hover { color: var(--accent); }
-
-.colophon {
-  padding-top: var(--space-s);
-  font-size: var(--step--1);
-  color: var(--ink-faint);
-  max-width: none;
-}
-
-/* ==========================================================================
-   Section transitions  -  each section rises and tilts in as it scrolls
-   onto the screen, and leans away as it scrolls off the top. Driven by
-   scroll position, so it reverses when you scroll back. Strength is set by
-   the --tilt-* variables at the top of this file.
-
-   A section is completely flat whenever it can be read: entry finishes by
-   the time its top reaches the middle of the screen, and exit only starts
-   once its bottom is in the top third.
-
-   Everything lives inside @supports so a browser without scroll-linked
-   animation shows the page static - an unguarded animation there would
-   play once on load as an ordinary timed animation. animation-range is
-   checked too: without it both ranges fall back to the whole view, and the
-   exit would hold every section leaning away. It is also skipped entirely
-   for visitors who ask for reduced motion.
-   ========================================================================== */
-
-@keyframes section-entry {
-  from {
-    transform-origin: 50% 100%;
-    transform: perspective(var(--tilt-depth)) translateY(var(--tilt-rise))
-               rotateX(var(--tilt)) scale(var(--tilt-scale));
-    opacity: var(--tilt-fade);
-  }
-  to {
-    transform-origin: 50% 100%;
-    transform: perspective(var(--tilt-depth)) translateY(0) rotateX(0deg) scale(1);
-    opacity: 1;
-  }
-}
-
-@keyframes section-exit {
-  from {
-    transform-origin: 50% 0%;
-    transform: perspective(var(--tilt-depth)) rotateX(0deg) scale(1);
-    opacity: 1;
-  }
-  to {
-    transform-origin: 50% 0%;
-    transform: perspective(var(--tilt-depth)) rotateX(calc(var(--tilt) * -1))
-               scale(var(--tilt-scale));
-    opacity: var(--tilt-fade);
-  }
-}
-
-@supports (animation-timeline: view()) and (animation-range: cover 0% cover 50%) {
-  @media (prefers-reduced-motion: no-preference) {
-    /* Entry and exit are two animations with their own scroll ranges.
-       Between them neither applies, which is what keeps a section flat
-       while it is being read. Fill modes only hold the off-screen ends. */
-    .section {
-      animation-name: section-entry, section-exit;
-      animation-timing-function: linear;
-      animation-fill-mode: backwards, forwards;
-      animation-timeline: view();
-      animation-range: cover 0% cover 50vh,
-                       cover calc(100% - 33.333vh) cover 100%;
-    }
-
-    /* The hero is on screen at load, so it only has an exit. */
-    .hero {
-      animation-name: section-exit;
-      animation-timing-function: linear;
-      animation-fill-mode: forwards;
-      animation-timeline: view();
-      animation-range: cover calc(100% - 33.333vh) cover 100%;
-    }
-
-    /* The footer is too short for its top to ever reach mid-screen, so its
-       entry runs until it is fully on screen - the bottom of the page. It
-       ends 4px early: the page's maximum scroll is often fractional, and a
-       range ending exactly there leaves the footer a hair short of flat. */
-    .footer {
-      animation-name: section-entry;
-      animation-timing-function: linear;
-      animation-fill-mode: backwards;
-      animation-timeline: view();
-      animation-range: entry 0% entry calc(100% - 4px);
-    }
-  }
-}
+.contact-links a:hover { color: var(--accent); }
 
 /* ==========================================================================
    Responsive + motion
    ========================================================================== */
 
 @media (max-width: 48rem) {
-  .about-grid { grid-template-columns: 1fr; gap: var(--space-m); }
-  .footer-inner { align-items: flex-start; }
-  .footer-links { text-align: left; }
+  .about-grid { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: var(--space-s); }
+  .timeline { padding-left: var(--space-m); }
+  .timeline-line { left: calc(var(--space-xs) - 1px); }
+  .role::before {
+    top: calc(var(--space-s) + 0.3rem);
+    left: calc(var(--space-xs) - var(--space-m) - 7px);
+  }
 
   /* Dates stack above the role instead of sitting beside it. */
-  .role { grid-template-columns: 1fr; gap: var(--space-s); }
+  .role { grid-template-columns: minmax(0, 1fr); gap: var(--space-s); }
   .role-when {
     grid-auto-flow: column;
     justify-content: start;
@@ -644,15 +684,22 @@ img { max-width: 100%; display: block; }
 }
 
 @media (max-width: 26rem) {
-  .topbar { gap: var(--space-xs); }
   .topbar nav {
     gap: var(--space-xs);
+    padding-block: var(--space-xs);
     letter-spacing: 0.04em;
     font-size: 0.75rem;
-    flex-wrap: wrap;
   }
+
+  /* Keep the Hero's buttons above the fold on small phones. */
+  .hero { padding-top: clamp(5.5rem, 14vh, 12rem); }
+  .hero-name,
+  .hero-intro,
+  .chips { margin-bottom: var(--space-s); }
 }
 
+/* Reduced motion: script.js leaves the background still and skips the
+   Reveal and the Timeline draw; this covers the CSS side. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
