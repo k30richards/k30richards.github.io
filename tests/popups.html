@@ -402,19 +402,19 @@
       return Math.abs(row - seeking) <= 1 ? null : 'Seeking is ' + seeking.toFixed(0) + 'px in a ' + row.toFixed(0) + 'px row';
     });
 
-    await check('about_toolkit_has_five_groups_with_the_top_skills_of_every_project' + at, () => {
+    await check('about_toolkit_skills_sit_in_the_right_categories' + at, () => {
       const groups = qa(ctx, 'dialog.popup .toolkit-group');
-      if (groups.length !== 5) return 'found ' + groups.length + ' Toolkit groups, expected 5';
-      const names = groups.map(g => norm(g.querySelector('.toolkit-name').textContent));
-      if (JSON.stringify(names) !== JSON.stringify(['Modeling', 'Data', 'Cloud & reporting', 'LLMs', 'Applied & edge ML'])) return 'groups are ' + JSON.stringify(names);
-      const tools = qa(ctx, 'dialog.popup .toolkit-group li').map(li => norm(li.textContent));
-      const top = ['Python', 'ETL', 'Applied AI research', 'Medical image analysis', 'Snowflake', 'SQL', 'Snowflake scripting',
-                   'Model optimization', 'TensorFlow', 'Embedded ML', 'PyTorch', 'Transformers', 'Multimodal data analysis'];
-      const missing = top.filter(t => !tools.includes(t));
-      if (missing.length) return 'the Toolkit lacks: ' + missing.join(', ');
-      const old = ['Scikit-learn', 'Pandas', 'NumPy', 'Azure', 'Tableau', 'Automation', 'Prompt design', 'Extraction from unstructured sources'];
-      const gone = old.filter(t => !tools.includes(t));
-      return gone.length ? 'the Toolkit lost: ' + gone.join(', ') : null;
+      const got = {};
+      for (const g of groups) got[norm(g.querySelector('.toolkit-name').textContent)] = Array.from(g.querySelectorAll('li')).map(li => norm(li.textContent));
+      const want = {
+        'Modeling': ['PyTorch', 'TensorFlow', 'Scikit-learn', 'Transformers', 'Multimodal data analysis'],
+        'Data': ['Python', 'Pandas', 'NumPy', 'SQL', 'SQL scripting', 'ETL'],
+        'Cloud & reporting': ['Snowflake', 'Azure', 'Tableau'],
+        'LLMs': ['Automation', 'Prompt design', 'Extraction from unstructured sources'],
+        'Applied & edge ML': ['Applied AI research', 'Medical image analysis', 'Model optimization', 'Embedded ML']
+      };
+      if (JSON.stringify(Object.keys(got)) !== JSON.stringify(Object.keys(want))) return 'groups are ' + JSON.stringify(Object.keys(got));
+      for (const k of Object.keys(want)) if (JSON.stringify(got[k]) !== JSON.stringify(want[k])) return k + ' holds ' + JSON.stringify(got[k]) + ', expected ' + JSON.stringify(want[k]);
     });
 
     await closeByButton(ctx);
@@ -550,21 +550,33 @@
         ['Company list', 'Find leadership and board pages', 'Jina', 'Playwright', 'Claude API', 'title whitelist', 'Apollo', 'ETL scripts', 'CRM']);
     });
 
-    await check('wpi_figure_is_the_repeat_run_heatmap_from_the_real_data' + at, () => {
+    await check('wpi_figure_ranks_the_six_strategies_by_accuracy_and_describes_each' + at, () => {
       tabs[1].click();
-      const why = figureProblem(ctx, shown(ctx), 'table', ['Stage 1', 'Stage 4', 'Chain of Thought', 'Few-Shot']);
+      const why = figureProblem(ctx, shown(ctx), 'table', ['Accuracy on the 80-image sample (%)', 'Chain of Thought', 'Few-Shot', 'Zero-Shot']);
       if (why) return why;
-      const rows = Array.from(shown(ctx).querySelectorAll('.heat tbody tr'));
-      if (rows.length !== 6) return 'found ' + rows.length + ' strategy rows';
-      const grid = rows.map(r => Array.from(r.querySelectorAll('td')).map(td => parseInt(td.textContent, 10)));
-      if (grid.some(r => r.length !== 8 || r.some(n => !(n >= 0 && n <= 10)))) return 'each row needs 8 counts between 0 and 10';
-      const want = { 'Chain of Thought': 64, 'CO-STAR': 58, 'Zero-Shot': 58, 'Tree of Thought': 56, 'TIDD-EC': 48, 'Few-Shot': 57 };
-      for (const r of rows) {
-        const name = norm(r.querySelector('th').textContent);
-        const total = Array.from(r.querySelectorAll('td')).reduce((a, td) => a + parseInt(td.textContent, 10), 0);
-        if (want[name] !== total) return name + ' totals ' + total + ' of 80 correct runs, expected ' + want[name];
+      const rows = Array.from(shown(ctx).querySelectorAll('table.strategies tbody tr'));
+      if (rows.length !== 6) return 'found ' + rows.length + ' strategy rows, expected 6';
+      const want = [['Chain of Thought', '72.5', /step by step/], ['CO-STAR', '70.0', /context, objective, style, tone, audience and response/],
+                    ['Zero-Shot', '70.0', /no examples/], ['Tree of Thought', '66.2', /several viewpoints/],
+                    ['TIDD-EC', '60.0', /task, instructions, do.s, don.ts, examples and content/], ['Few-Shot', '53.7', /a few worked examples/]];
+      for (let i = 0; i < want.length; i++) {
+        const r = rows[i];
+        const name = norm(r.querySelector('.bar-name').textContent), desc = norm(r.querySelector('.bar-desc').textContent);
+        const val = norm(r.querySelector('.bar-val').textContent);
+        if (name !== want[i][0] || val !== want[i][1]) return 'row ' + (i + 1) + ' is ' + JSON.stringify([name, val]) + ', expected ' + JSON.stringify([want[i][0], want[i][1]]);
+        if (!want[i][2].test(desc)) return name + ' description is ' + JSON.stringify(desc);
+        if (desc.split(' ').length > 22) return name + ' description is longer than one short sentence';
+        const w = parseFloat(r.querySelector('.bar').style.getPropertyValue('--w'));
+        if (Math.abs(w - parseFloat(want[i][1])) > 0.1) return name + ' bar is ' + w + '% wide for a value of ' + want[i][1];
       }
-      if (!grid.every(r => r[3] === 0)) return 'image 2B should be 0 of 10 for every strategy';
+      if (!rows[0].querySelector('.bar.best') || shown(ctx).querySelectorAll('.bar.best').length !== 1) return 'only Chain of Thought should be highlighted';
+    });
+
+    await check('wpi_result_mentions_the_stage_finding_and_nothing_extra' + at, () => {
+      tabs[1].click();
+      const result = norm(shown(ctx).querySelector('.role-text > p:last-of-type').textContent);
+      if (!/Early-stage wounds were the hardest to call: Chain of Thought scored 50% on Stage 1 but 90% on Stage 3/.test(result)) return 'the result lacks the stage finding';
+      if (/PIID classification scale|20 images per stage|minimal tuning/.test(result)) return 'the result carries extra points that were not wanted';
     });
 
     await check('experience_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
@@ -631,8 +643,10 @@
       tabs[0].click(); const comp = norm(shown(ctx).textContent);
       tabs[1].click(); const lock = norm(shown(ctx).textContent);
       tabs[2].click(); const stock = norm(shown(ctx).textContent);
-      if (!/star schema/i.test(comp) || !/expects to save over 300 hours/.test(comp))
-        return 'compensation text must name the star schema and say the team "expects to save over 300 hours"';
+      if (!/star schema/i.test(comp) || !/expects it to save over 300 hours/.test(comp))
+        return 'compensation text must name the star schema and say the team "expects it to save over 300 hours"';
+      if (!/four of the six franchises, the only four we had access to, since the other two were more complex and not modeled in Excel/.test(comp))
+        return 'compensation text must explain that four franchises were the only ones the team had access to';
       if (/\bsaved\b[^.]*300/.test(comp)) return 'compensation text claims 300 hours were saved';
       if (!lock.includes('79 KB to 25 KB') || !lock.includes('108 to 36 microseconds') || !lock.includes('96.1% to 98.3%'))
         return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
@@ -719,7 +733,7 @@
 
     await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
       const want = [
-        ['Snowflake', 'SQL', 'Snowflake Scripting', 'Tableau', 'Compensation Planning Analysis'],
+        ['Snowflake', 'SQL', 'SQL Scripting', 'Tableau', 'Compensation Planning Analysis'],
         ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
         ['PyTorch', 'Transformers', 'Multimodal Data Analysis', 'Time-Series Modeling', 'NLP', 'Model Evaluation']
       ];
@@ -821,6 +835,10 @@
     await check('there_is_no_contact_section_or_contact_popup', () => {
       if (ctx.doc.getElementById('contact')) return '#contact still exists';
       return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('the_page_never_says_snowflake_scripting', () => {
+      return /Snowflake scripting/i.test(ctx.doc.documentElement.textContent) ? '"Snowflake scripting" is on the page' : null;
     });
 
     await check('the_page_never_names_a_tool_that_was_only_researched', () => {

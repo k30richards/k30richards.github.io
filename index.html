@@ -113,11 +113,11 @@
           </div>
           <div class="toolkit-group">
             <p class="toolkit-name">Data</p>
-            <ul class="tags"><li>Python</li><li>Pandas</li><li>NumPy</li><li>SQL</li><li>ETL</li></ul>
+            <ul class="tags"><li>Python</li><li>Pandas</li><li>NumPy</li><li>SQL</li><li>SQL scripting</li><li>ETL</li></ul>
           </div>
           <div class="toolkit-group">
             <p class="toolkit-name">Cloud &amp; reporting</p>
-            <ul class="tags"><li>Snowflake</li><li>Snowflake scripting</li><li>Azure</li><li>Tableau</li></ul>
+            <ul class="tags"><li>Snowflake</li><li>Azure</li><li>Tableau</li></ul>
           </div>
           <div class="toolkit-group">
             <p class="toolkit-name">LLMs</p>
@@ -289,30 +289,28 @@
                 easily mislabel, and ran every prompt on each image ten times.
               </p>
               <figure class="viz">
-                <table class="heat">
-                                  <caption>Runs out of 10 that named the correct stage</caption>
-                                  <thead>
-                                    <tr><th></th><th scope="colgroup" colspan="2">Stage 1</th><th scope="colgroup" colspan="2">Stage 2</th><th scope="colgroup" colspan="2">Stage 3</th><th scope="colgroup" colspan="2">Stage 4</th></tr>
-                                    <tr><th></th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th><th scope="col">A</th><th scope="col">B</th></tr>
-                                  </thead>
+                                <table class="bars strategies">
+                                  <caption>Accuracy on the 80-image sample (%)</caption>
                                   <tbody>
-                                    <tr><th scope="row">Chain of Thought</th><td class="hi" style="--p:85%">10</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
-                                    <tr><th scope="row">CO-STAR</th><td class="hi" style="--p:68%">8</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
-                                    <tr><th scope="row">Zero-Shot</th><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:60%">7</td><td class="hi" style="--p:60%">7</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:42%">5</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:76%">9</td></tr>
-                                    <tr><th scope="row">Tree of Thought</th><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:60%">7</td><td class="hi" style="--p:68%">8</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:60%">7</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
-                                    <tr><th scope="row">TIDD-EC</th><td class="" style="--p:34%">4</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:51%">6</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="" style="--p:34%">4</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
-                                    <tr><th scope="row">Few-Shot</th><td class="hi" style="--p:85%">10</td><td class="" style="--p:42%">5</td><td class="" style="--p:17%">2</td><td class="" style="--p:0%">0</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td><td class="hi" style="--p:85%">10</td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Chain of Thought</span><span class="bar-desc">Asks the model to reason step by step before it gives a stage.</span></th><td><div class="bar-cell"><span class="bar best" style="--w:72.5%"></span><span class="bar-val">72.5</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">CO-STAR</span><span class="bar-desc">A prompt template covering context, objective, style, tone, audience and response.</span></th><td><div class="bar-cell"><span class="bar" style="--w:70.0%"></span><span class="bar-val">70.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Zero-Shot</span><span class="bar-desc">Asks the model to stage the wound with no examples, relying only on what it already knows.</span></th><td><div class="bar-cell"><span class="bar" style="--w:70.0%"></span><span class="bar-val">70.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Tree of Thought</span><span class="bar-desc">Has the model weigh several viewpoints, such as different medical professionals, before deciding.</span></th><td><div class="bar-cell"><span class="bar" style="--w:66.2%"></span><span class="bar-val">66.2</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">TIDD-EC</span><span class="bar-desc">A prompt template covering task, instructions, do&rsquo;s, don&rsquo;ts, examples and content.</span></th><td><div class="bar-cell"><span class="bar" style="--w:60.0%"></span><span class="bar-val">60.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Few-Shot</span><span class="bar-desc">Shows the model a few worked examples before asking it to stage the wound.</span></th><td><div class="bar-cell"><span class="bar" style="--w:53.7%"></span><span class="bar-val">53.7</span></div></td></tr>
                                   </tbody>
                                 </table>
-                <figcaption>Each row is one prompting strategy and each square is one image run ten times; darker means more runs named the right stage. Rows run from most to least accurate on the 80-image sample.</figcaption>
+                <figcaption>How accurate each prompting strategy was on the 80-image sample, with what each one asks the model to do. Highlighted: the best performer.</figcaption>
               </figure>
               <p>
                 <span class="para-label">The result</span>
                 Chain of Thought was best on all four measures at 72.5%
-                accuracy, and Few-Shot was the weakest. Small changes in
-                wording shifted the answers, and adding medical context made
-                them steadier. I presented the results at WPI&rsquo;s NSF REU
-                research symposium.
+                accuracy, and Few-Shot was the weakest. Early-stage wounds
+                were the hardest to call: Chain of Thought scored 50% on Stage
+                1 but 90% on Stage 3. Small changes in wording shifted the
+                answers, and adding medical context made them steadier. I
+                presented the results at WPI&rsquo;s NSF REU research
+                symposium.
               </p>
             </div>
             <ul class="tags">
@@ -369,7 +367,7 @@
             We built the system in Snowflake. Sales results sit in a star
             schema, and each plan&rsquo;s rules live in a separate rules
             schema with header, detail and assignment layers. A calculation
-            engine of stored procedures in Snowflake scripting matches rules
+            engine of stored procedures written in SQL scripting matches rules
             to sales, computes Tier 1, accelerator and bonus payouts, and
             unifies them into one output table, with validation checks along
             the way. My teammates built the Streamlit app where analysts enter
@@ -429,16 +427,18 @@
           </figure>
           <p>
             <span class="para-label">The result</span>
-            The system covers four of the six franchises and the three
-            standard payout types, and the team expects to save over 300 hours
-            of work a year. Analysts can test a broader range of plan
-            scenarios from consistent numbers before choosing one.
+            The system covers the three standard payout types for four of the
+            six franchises, the only four we had access to, since the other
+            two were more complex and not modeled in Excel. The team expects
+            it to save over 300 hours of work a year, and analysts can test a
+            broader range of plan scenarios from consistent numbers before
+            choosing one.
           </p>
         </div>
         <ul class="tags">
           <li>Snowflake</li>
           <li>SQL</li>
-          <li>Snowflake Scripting</li>
+          <li>SQL Scripting</li>
           <li>Tableau</li>
           <li>Compensation Planning Analysis</li>
         </ul>

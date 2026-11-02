@@ -721,21 +721,13 @@ main {
 .bar.best { background: var(--accent-2); }
 .bar-val { font-variant-numeric: tabular-nums; color: var(--ink); }
 
-.heat { border-collapse: separate; border-spacing: 2px; }
-.heat thead th { padding: 0 0 0.2rem; text-align: center; font-size: 0.7rem; color: var(--ink-faint); }
-.heat tbody th { padding-right: 0.4rem; white-space: nowrap; font-size: 0.74rem; }
-.heat td {
-  padding: 0.3rem 0;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  border-radius: 4px;
-  background: color-mix(in oklab, var(--accent) var(--p, 0%), transparent);
-  outline: 1px solid var(--rule);
-  outline-offset: -1px;
-}
-.heat td.hi { color: var(--accent-ink); font-weight: 700; }
-
+/* The prompting-strategy chart: each row names a strategy, says what it does, and shows its bar. */
+.strategies th { width: 54%; padding: 0.4rem 0.6rem 0.4rem 0; vertical-align: top; }
+.strategies td { vertical-align: top; padding: 0.4rem 0; }
+.strategies tr + tr > * { border-top: 1px solid var(--rule); }
+.strategies .bar-cell { min-height: 1.4rem; }
+.bar-name { display: block; font-weight: 600; color: var(--ink); }
+.bar-desc { display: block; margin-top: 0.1rem; font-size: 0.74rem; line-height: 1.4; color: var(--ink-muted); }
 /* ==========================================================================
    Section pop-ups  -  script.js builds one <dialog> from the Sections'
    own content and opens it from the Hero's Section buttons. Once it has,
