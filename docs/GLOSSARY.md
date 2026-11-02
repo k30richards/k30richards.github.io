@@ -7,7 +7,7 @@ Kobe Richards' personal portfolio site: one long page that introduces him, his e
 ### Page structure
 
 **Section**:
-One of the page's top-level blocks, read in order: the Hero, About, Experience, Projects, and the Footer.
+One of the page's top-level blocks, read in order: the Hero, About, Experience, Projects, and Contact.
 _Avoid_: Panel, block, slide, page
 
 **Hero**:
@@ -15,27 +15,37 @@ The opening Section with Kobe's name, his one-line intro, and the two calls to a
 _Avoid_: Header, banner, splash
 
 **Projects section**:
-The Section listing Kobe's project cards.
+The Section listing Kobe's projects, one Panel per project.
 _Avoid_: Work, Selected work
 
-**Footer**:
+**Contact section**:
 The closing Section with what roles he is open to and his contact links.
-_Avoid_: Contact section
+_Avoid_: Footer
+
+**Panel**:
+A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content inside a Section lives in a Panel.
+_Avoid_: Card, box, tile, storage space
+
+**Toolkit**:
+The Panel in About that groups the tools Kobe already names in his bio by category.
+_Avoid_: Skills list, tech stack
+
+**Timeline**:
+The vertical line in Experience that the role Panels hang off, in date order.
+_Avoid_: Roles list
+
+### Background
+
+**Constellation**:
+The animated field of drifting nodes that connect to their neighbours, sitting behind every Section and staying in place while the page scrolls.
+_Avoid_: Particles, network background, canvas
 
 ### Motion
 
-**Section Transition**:
-The motion a Section goes through as it scrolls onto or off the screen, following the visitor's scroll position exactly, so scrolling back plays it in reverse.
-_Avoid_: Scroll animation, reveal, entrance effect
+**Reveal**:
+A Panel fading in and rising into place as it scrolls into view, following the visitor's scroll position, so scrolling back up plays it in reverse.
+_Avoid_: Entry, entrance, scroll animation, Section Transition
 
-**Entry**:
-The part of a Section Transition as the Section scrolls onto the screen. Every Section except the Hero has one.
-_Avoid_: Enter, reveal, intro
-
-**Exit**:
-The part of a Section Transition as the Section scrolls off the top of the screen. Every Section except the Footer has one.
-_Avoid_: Leave, outro, dismiss
-
-**Settled**:
-A Section that is flat, full size, and fully visible: its state whenever any part of it can be read. A Section is only mid-Entry or mid-Exit while it is mostly off screen.
-_Avoid_: At rest, idle, in view
+**Active Section**:
+The Section the visitor is currently reading, highlighted in the navigation.
+_Avoid_: Current page, selected tab
