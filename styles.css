@@ -722,15 +722,18 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 
 .popup-title {
   flex: 1;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;           /* on a narrow bar the number sits above the name */
   align-items: baseline;
-  gap: var(--space-xs);
+  gap: 0 var(--space-xs);
   font-size: var(--step-2);
   outline: none;             /* focused by script on open, not by the visitor */
 }
 
 .popup-step,
 .popup-close {
+  flex: none;                /* the heading gives way, never the buttons */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -879,6 +882,8 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 
 /* On phones the arrows drop their Section names (they keep them as labels). */
 @media (max-width: 30rem) {
+  .popup-bar { gap: var(--space-2xs); }
+  .popup-title { font-size: var(--step-1); }
   .popup-step { width: 2.75rem; padding: 0; }
   .popup-step-name {
     position: absolute;
@@ -900,6 +905,8 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 
   /* Keep the Hero's buttons above the fold on small phones. */
   .hero { padding-top: clamp(5.5rem, 14vh, 12rem); }
+  html.popups .hero { padding-block: var(--space-xs); }   /* no top bar to clear */
+  .hero-contact { margin-top: var(--space-s); }
   .hero-name,
   .hero-intro,
   .chips { margin-bottom: var(--space-s); }
