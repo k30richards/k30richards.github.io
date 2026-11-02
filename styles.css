@@ -358,16 +358,6 @@ main {
   backdrop-filter: blur(var(--panel-blur));
 }
 
-/* A small cue over the Section buttons that they open panels. */
-.hero-label {
-  margin: 0 0 var(--space-2xs);
-  font-size: var(--step--1);
-  letter-spacing: 0.14em;
-  line-height: 1.3;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
 /* The Section buttons: each opens its Section as a pop-up. */
 .hero-sections { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
@@ -392,6 +382,31 @@ main {
   backdrop-filter: blur(var(--panel-blur));
 }
 .hero-sections .btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+/* A small "+" on each Section button says it opens something. */
+.btn-plus {
+  position: relative;
+  top: 0.04em;
+  margin-left: 0.55rem;
+  font-size: 1.15em;
+  font-weight: 700;
+  line-height: 0;
+  color: var(--accent-2);
+}
+
+/* A slight, short pulse on About (three times, then still) says where to start.
+   Only when the pop-ups are built; reduced motion turns it off. */
+html.popups .hero-sections .btn:first-child {
+  animation: nudge 2.4s ease-out 1.2s 3;
+}
+@keyframes nudge {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent-2) 40%, transparent); }
+  70%  { box-shadow: 0 0 0 0.5rem transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.popups .hero-sections .btn:first-child { animation: none; }
+}
 
 .hero-contact {
   display: flex;
@@ -1006,8 +1021,8 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
   /* Keep the Hero's buttons above the fold on small phones. */
   .hero { padding-top: clamp(5.5rem, 14vh, 12rem); }
   html.popups .hero { padding-block: var(--space-xs); }   /* no top bar to clear */
-  .chips { margin-bottom: var(--space-xs); }
-  .hero-contact { margin-top: var(--space-xs); }
+  .hero-contact { margin-top: var(--space-s); }
+  .hero-sections .btn { padding-inline: 1.25em; }   /* About and Experience share a row even with a scrollbar */
   .hero-name,
   .hero-intro,
   .chips { margin-bottom: var(--space-s); }

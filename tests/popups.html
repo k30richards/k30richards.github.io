@@ -93,7 +93,8 @@
   const q = (ctx, sel) => ctx.doc.querySelector(sel);
   const qa = (ctx, sel) => Array.from(ctx.doc.querySelectorAll(sel));
   const dlg = ctx => q(ctx, 'dialog.popup');
-  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => norm(a.textContent) === name);
+  const labelOf = a => norm(a.childNodes[0].textContent);          // the "+" is a separate, hidden span
+  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => labelOf(a) === name);
   const heading = ctx => norm(q(ctx, '#popup-title').textContent);
   const visible = el => !!el && !el.hidden && el.getClientRects().length > 0;
   const step = (ctx, which) => qa(ctx, '.popup-step')[which === 'prev' ? 0 : 1];
@@ -231,16 +232,41 @@
     });
 
     await check('hero_section_buttons_are_about_experience_projects' + at, () => {
-      const names = qa(ctx, '.hero-sections a').map(a => norm(a.textContent));
+      const names = qa(ctx, '.hero-sections a').map(labelOf);
       return JSON.stringify(names) === JSON.stringify(['About', 'Experience', 'Projects']) ? null :
         'buttons are ' + JSON.stringify(names);
     });
 
-    await check('hero_says_explore_above_the_section_buttons' + at, () => {
-      const label = q(ctx, '#explore-label'), nav = q(ctx, '.hero-sections');
-      if (!label || norm(label.textContent) !== 'Explore') return 'no "Explore" label';
-      if (nav.getAttribute('aria-labelledby') !== 'explore-label') return 'the buttons are not labelled by it';
-      return label.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top + 1 ? null : 'the label is not above the buttons';
+    await check('hero_has_no_explore_label_and_each_section_button_carries_a_plus' + at, () => {
+      if (q(ctx, '.hero-label, #explore-label')) return 'the Explore label is still there';
+      if (q(ctx, '.hero-sections').getAttribute('aria-label') !== 'Explore') return 'the button group has no accessible name';
+      for (const a of qa(ctx, '.hero-sections a')) {
+        const plus = a.querySelector('.btn-plus');
+        if (!plus || plus.textContent !== '+') return labelOf(a) + ' has no "+"';
+        if (plus.getAttribute('aria-hidden') !== 'true') return 'the "+" on ' + labelOf(a) + ' is read aloud';
+        if (!plus.getClientRects().length) return 'the "+" on ' + labelOf(a) + ' is not visible';
+      }
+    });
+
+    await check('only_the_about_button_pulses_a_few_times_then_stops' + at, () => {
+      const [first, ...others] = qa(ctx, '.hero-sections a').map(a => ctx.win.getComputedStyle(a));
+      if (first.animationName !== 'nudge') return 'About does not pulse (animation is ' + first.animationName + ')';
+      if (first.animationIterationCount !== '3') return 'the pulse repeats ' + first.animationIterationCount + ' times';
+      if (parseFloat(first.animationDuration) > 3) return 'the pulse is slow: ' + first.animationDuration;
+      return others.every(c => c.animationName === 'none') ? null : 'another button pulses too';
+    });
+
+    await check('reduced_motion_turns_the_pulse_off' + at, () => {
+      const seen = [];
+      for (const sheet of Array.from(ctx.doc.styleSheets)) {
+        let rules; try { rules = Array.from(sheet.cssRules); } catch (e) { continue; }
+        for (const r of rules) {
+          if (!r.media || !/prefers-reduced-motion:\s*reduce/.test(r.conditionText || r.media.mediaText)) continue;
+          seen.push(r.cssText.replace(/\s+/g, ' ').slice(0, 90));
+          if (/hero-sections/.test(r.cssText) && /animation[^;{}]*none/.test(r.cssText)) return null;
+        }
+      }
+      return 'no reduced-motion rule switches off the About pulse; saw ' + seen.length + ': ' + JSON.stringify(seen);
     });
 
     await check('hero_has_no_view_projects_or_get_in_touch_buttons' + at, () => {
@@ -255,7 +281,7 @@
     });
 
     for (const a of qa(ctx, '.hero-sections a, .hero-contact a')) {
-      await check('hero_link_' + norm(a.textContent).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
+      await check('hero_link_' + labelOf(a).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
         () => hitTarget(ctx, a));
     }
   }
