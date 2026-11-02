@@ -47,6 +47,13 @@
   --border:    1px solid var(--rule);
   --ease:      cubic-bezier(0.2, 0.7, 0.3, 1);
   --speed:     220ms;
+
+  /* --- Section transitions (3D tilt as sections scroll in and out) ------ */
+  --tilt:       10deg;        /* how far a section leans while moving        */
+  --tilt-scale: 0.94;         /* its size at the start of entry / end of exit */
+  --tilt-fade:  0.35;         /* its opacity at those same points            */
+  --tilt-rise:  3rem;         /* how far below its place it starts           */
+  --tilt-depth: 1200px;       /* perspective; smaller = more dramatic        */
 }
 
 /* ==========================================================================
@@ -161,6 +168,10 @@ img { max-width: 100%; display: block; }
   justify-content: flex-end;
   gap: var(--space-s);
   padding-block: var(--space-s);
+  /* Above the hero: its exit animation makes it a stacking context, which
+     would otherwise lift its glow over the nav. */
+  position: relative;
+  z-index: 1;
 }
 
 .topbar nav {
@@ -203,6 +214,7 @@ img { max-width: 100%; display: block; }
               color-mix(in oklab, var(--accent) 22%, transparent),
               transparent 62%);
   filter: blur(30px);
+  pointer-events: none;      /* decoration only; never takes a click */
 }
 
 .hero-name {
@@ -527,6 +539,89 @@ img { max-width: 100%; display: block; }
   font-size: var(--step--1);
   color: var(--ink-faint);
   max-width: none;
+}
+
+/* ==========================================================================
+   Section transitions  -  each section rises and tilts in as it scrolls
+   onto the screen, and leans away as it scrolls off the top. Driven by
+   scroll position, so it reverses when you scroll back. Strength is set by
+   the --tilt-* variables at the top of this file.
+
+   A section is completely flat whenever it can be read: entry finishes by
+   the time its top reaches the middle of the screen, and exit only starts
+   once its bottom is in the top third.
+
+   Everything lives inside @supports so a browser without scroll-linked
+   animation shows the page static - an unguarded animation there would
+   play once on load as an ordinary timed animation. animation-range is
+   checked too: without it both ranges fall back to the whole view, and the
+   exit would hold every section leaning away. It is also skipped entirely
+   for visitors who ask for reduced motion.
+   ========================================================================== */
+
+@keyframes section-entry {
+  from {
+    transform-origin: 50% 100%;
+    transform: perspective(var(--tilt-depth)) translateY(var(--tilt-rise))
+               rotateX(var(--tilt)) scale(var(--tilt-scale));
+    opacity: var(--tilt-fade);
+  }
+  to {
+    transform-origin: 50% 100%;
+    transform: perspective(var(--tilt-depth)) translateY(0) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes section-exit {
+  from {
+    transform-origin: 50% 0%;
+    transform: perspective(var(--tilt-depth)) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform-origin: 50% 0%;
+    transform: perspective(var(--tilt-depth)) rotateX(calc(var(--tilt) * -1))
+               scale(var(--tilt-scale));
+    opacity: var(--tilt-fade);
+  }
+}
+
+@supports (animation-timeline: view()) and (animation-range: cover 0% cover 50%) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* Entry and exit are two animations with their own scroll ranges.
+       Between them neither applies, which is what keeps a section flat
+       while it is being read. Fill modes only hold the off-screen ends. */
+    .section {
+      animation-name: section-entry, section-exit;
+      animation-timing-function: linear;
+      animation-fill-mode: backwards, forwards;
+      animation-timeline: view();
+      animation-range: cover 0% cover 50vh,
+                       cover calc(100% - 33.333vh) cover 100%;
+    }
+
+    /* The hero is on screen at load, so it only has an exit. */
+    .hero {
+      animation-name: section-exit;
+      animation-timing-function: linear;
+      animation-fill-mode: forwards;
+      animation-timeline: view();
+      animation-range: cover calc(100% - 33.333vh) cover 100%;
+    }
+
+    /* The footer is too short for its top to ever reach mid-screen, so its
+       entry runs until it is fully on screen - the bottom of the page. It
+       ends 4px early: the page's maximum scroll is often fractional, and a
+       range ending exactly there leaves the footer a hair short of flat. */
+    .footer {
+      animation-name: section-entry;
+      animation-timing-function: linear;
+      animation-fill-mode: backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry calc(100% - 4px);
+    }
+  }
 }
 
 /* ==========================================================================
