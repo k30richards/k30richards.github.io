@@ -143,14 +143,14 @@
     if (weight(ps[1]) > 500) return 'the second paragraph renders bold';
   }
   const skillsOf = panel => Array.from(panel.querySelectorAll('.tags li')).map(li => norm(li.textContent));
-  // The first three skills are drawn stronger than the rest.
-  function emphasisProblem(ctx, panel) {
+  // Skills are in priority order, but none is drawn differently from the others.
+  function sameLookProblem(ctx, panel) {
     const lis = Array.from(panel.querySelectorAll('.tags li'));
     if (lis.length < 4) return 'fewer than four skills';
-    const look = li => { const s = ctx.win.getComputedStyle(li); return s.color + '|' + s.borderTopColor + '|' + s.backgroundColor; };
-    const first = lis.slice(0, 3).map(look), rest = lis.slice(3).map(look);
-    if (!first.every(f => f === first[0])) return 'the first three skills do not match each other';
-    if (rest.some(r => r === first[0])) return 'a skill after the third looks like the first three';
+    const look = li => { const s = ctx.win.getComputedStyle(li); return s.color + '|' + s.borderTopColor + '|' + s.backgroundColor + '|' + s.fontWeight; };
+    const first = look(lis[0]);
+    const odd = lis.findIndex(li => look(li) !== first);
+    if (odd >= 0) return 'skill ' + (odd + 1) + ' (' + norm(lis[odd].textContent) + ') is drawn differently from the first';
   }
 
   // The focusable controls inside the dialog, in order: what Tab visits.
@@ -464,7 +464,7 @@
       if (/(all|each of the|every one of the) 1,091/i.test(b)) return 'WPI text claims all 1,091 images were run';
     });
 
-    await check('experience_skills_are_listed_in_priority_order_and_the_first_three_stand_out' + at, () => {
+    await check('experience_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
       const want = [
         ['Python', 'LLMs & AI Tooling', 'ETL', 'API Integration', 'Workflow Automation', 'CRM Systems', 'Technology Evaluation'],
         ['Prompt Engineering', 'Applied AI Research', 'Medical Image Analysis', 'Python']
@@ -473,7 +473,7 @@
         tabs[i].click();
         const got = skillsOf(shown(ctx));
         if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
-        const why = emphasisProblem(ctx, shown(ctx));
+        const why = sameLookProblem(ctx, shown(ctx));
         if (why) return 'tab ' + (i + 1) + ': ' + why;
       }
     });
@@ -561,7 +561,7 @@
         if (!stock.includes(w)) return 'stock text lacks "' + w + '"';
     });
 
-    await check('projects_skills_are_listed_in_priority_order_and_the_first_three_stand_out' + at, () => {
+    await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
       const want = [
         ['Snowflake', 'SQL', 'Snowflake Scripting', 'Tableau', 'Compensation Planning Analysis'],
         ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
@@ -572,7 +572,7 @@
         const got = skillsOf(shown(ctx));
         if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
         if (got.includes('Streamlit')) return 'tab ' + (i + 1) + ' lists Streamlit as a skill';
-        const why = emphasisProblem(ctx, shown(ctx));
+        const why = sameLookProblem(ctx, shown(ctx));
         if (why) return 'tab ' + (i + 1) + ': ' + why;
       }
     });

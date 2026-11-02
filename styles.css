@@ -846,13 +846,6 @@ html.popup-open { overflow: hidden; }   /* the page stays put behind it */
 .popup-tabpanel .card-text { font-size: var(--step-0); }
 .popup-tabpanel .card-links { margin: 0; }
 
-/* Skills are listed in priority order in index.html; the first three stand out. */
-.popup-tabpanel .tags li:nth-child(-n+3) {
-  color: var(--ink);
-  border-color: color-mix(in oklab, var(--accent) 60%, var(--rule));
-  background: color-mix(in oklab, var(--accent) 14%, transparent);
-}
-
 @keyframes popup-fade { from { opacity: 0; } }
 @keyframes popup-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
 @keyframes popup-swap { from { opacity: 0; transform: translateX(12px); } }
