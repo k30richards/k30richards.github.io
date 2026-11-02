@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section pop-up tests</title>
+<!--
+  Acceptance tests for the Section pop-ups: the Hero is the whole page, its
+  Section buttons open About, Experience and Projects as a dialog, and the
+  dialog is keyboard- and screen-reader-friendly.
+
+  Dependency-free: open this page in a browser that is VISIBLE on screen,
+  served over HTTP from the repo root, e.g.
+      python -m http.server 8792 --bind 127.0.0.1
+      http://127.0.0.1:8792/tests/popups.html
+  Add ?post=1 to also POST the results as JSON to /__results when finished.
+
+  The page loads ../index.html into one iframe per viewport and drives it
+  with real DOM calls (clicks, key events, focus). Results go to #results
+  (one PASS / FAIL line per test, then a SUMMARY line), to
+  window.__testResults, and document.title becomes DONE.
+
+  Two things a script cannot do, so they are checked by their cause instead:
+    - Esc: a page cannot press the real key, so the test checks the dialog is
+      opened with showModal() (which makes Esc close it natively), that the
+      page's own key handling never cancels Escape, and that closing by any
+      route (the "close" event) restores focus and scrolling.
+    - Reduced motion: the OS setting cannot be toggled here, so the test
+      checks the stylesheet carries the reduce rule that zeroes animations.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 13px/1.4 ui-monospace, Consolas, monospace; background: #fff; color: #111; }
+  #stage { position: fixed; top: 0; left: 0; z-index: 0; }
+  #stage iframe { border: 0; display: block; background: #fff; }
+  #results {
+    position: fixed; right: 0; bottom: 0; z-index: 1; margin: 0;
+    max-width: 60vw; max-height: 45vh; overflow: auto; padding: 8px;
+    background: rgba(255,255,255,.92); color: #111; border: 1px solid #999;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<pre id="results"></pre>
+<script>
+(async function () {
+  'use strict';
+
+  const results = { passed: 0, failed: 0, skipped: 0, lines: [] };
+  window.__testResults = results;
+  const out = document.getElementById('results');
+  function record(line) { results.lines.push(line); out.textContent += line + '\n'; }
+  function pass(name) { results.passed++; record('PASS ' + name); }
+  function fail(name, why) { results.failed++; record('FAIL ' + name + ': ' + why); }
+
+  // A check returns nothing (or null) to pass, or a string saying why not.
+  async function check(name, fn) {
+    try {
+      const why = await fn();
+      if (why) fail(name, why); else pass(name);
+    } catch (e) {
+      fail(name, 'error: ' + (e && e.stack || e));
+    }
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function settle() { await sleep(50); await sleep(50); }
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+  const DASH = '–';
+
+  const stage = document.getElementById('stage');
+
+  async function openFrame(w, h, opts) {
+    opts = opts || {};
+    stage.textContent = '';
+    const frame = document.createElement('iframe');
+    frame.style.width = w + 'px';
+    frame.style.height = h + 'px';
+    // Scripts off, same origin: what a visitor with JavaScript disabled gets.
+    if (opts.noscript) frame.setAttribute('sandbox', 'allow-same-origin');
+    const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
+    frame.src = '../index.html' + (opts.hash || '');
+    stage.appendChild(frame);
+    await loaded;
+    await frame.contentDocument.fonts.ready;
+    await sleep(opts.hash ? 500 : 0);
+    await settle();
+    return { frame, win: frame.contentWindow, doc: frame.contentDocument, W: w, H: h, label: w + 'x' + h };
+  }
+
+  const q = (ctx, sel) => ctx.doc.querySelector(sel);
+  const qa = (ctx, sel) => Array.from(ctx.doc.querySelectorAll(sel));
+  const dlg = ctx => q(ctx, 'dialog.popup');
+  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => norm(a.textContent) === name);
+  const heading = ctx => norm(q(ctx, '#popup-title').textContent);
+  const visible = el => !!el && !el.hidden && el.getClientRects().length > 0;
+  const step = (ctx, which) => qa(ctx, '.popup-step')[which === 'prev' ? 0 : 1];
+  const shown = ctx => qa(ctx, '.popup-tabpanel').find(visible);
+  // The dialog holds every Section's page (two hidden); these see the open one.
+  const openTabs = ctx => qa(ctx, '.popup-page:not([hidden]) [role="tab"]');
+
+  async function open(ctx, name) { heroLink(ctx, name).click(); await sleep(450); }
+  async function closeByButton(ctx) { q(ctx, '.popup-close').click(); await settle(); }
+  function key(ctx, target, k, extra) {
+    const e = new ctx.win.KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, extra));
+    target.dispatchEvent(e);
+    return e;
+  }
+
+  function describeEl(el) {
+    if (!el) return 'null';
+    let s = el.tagName + (el.id ? '#' + el.id : '');
+    if (el.className && typeof el.className === 'string') s += '.' + el.className.trim().split(/\s+/).join('.');
+    return s;
+  }
+
+  function hitTarget(ctx, a) {
+    const r = a.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x > ctx.W || y > ctx.H) return 'centre (' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is off screen';
+    const hit = ctx.doc.elementFromPoint(x, y);
+    return hit === a || a.contains(hit) ? null :
+      'elementFromPoint(' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is ' + describeEl(hit) + ', not the link';
+  }
+
+  // A role or project is a bold one-sentence overview that says where the work
+  // happened, then labelled paragraphs with one figure just before the result.
+  const EXPERIENCE_LABELS = ['The problem', 'The approach', 'What I built', 'The result'];
+  const PROJECT_LABELS = ['The problem', 'The solution', 'My part', 'The result'];
+  const wordCount = n => norm(n.textContent).split(' ').length;
+
+  function structureProblem(ctx, panel, labels) {
+    const box = panel.querySelector('.role-text, .card-text');
+    if (!box) return 'no description';
+    const kids = Array.from(box.children);
+    const overview = kids[0];
+    if (!overview || overview.tagName !== 'P') return 'the description does not start with a paragraph';
+    const strong = overview.querySelector('strong');
+    if (!strong || norm(strong.textContent) !== norm(overview.textContent)) return 'the first paragraph is not entirely bold';
+    const sentences = (norm(overview.textContent).match(/[.!?](\s|$)/g) || []).length;
+    if (sentences !== 1) return 'the overview is ' + sentences + ' sentences long';
+    if (wordCount(overview) > 48) return 'the overview is ' + wordCount(overview) + ' words';
+    const rest = kids.slice(1);
+    const paras = rest.filter(k => k.tagName === 'P');
+    const figs = rest.filter(k => k.tagName === 'FIGURE');
+    if (rest.length !== paras.length + figs.length) return 'the description holds something other than paragraphs and one figure';
+    const got = paras.map(p => norm((p.querySelector('.para-label') || { textContent: '' }).textContent));
+    if (JSON.stringify(got) !== JSON.stringify(labels)) return 'paragraph labels are ' + JSON.stringify(got);
+    if (figs.length !== 1) return 'found ' + figs.length + ' figures, expected 1';
+    if (rest[rest.length - 2] !== figs[0]) return 'the figure is not just before the result';
+    const weight = n => parseInt(ctx.win.getComputedStyle(n).fontWeight, 10);
+    if (weight(strong) < 600) return 'the overview renders at weight ' + weight(strong);
+    for (const p of paras) {
+      const label = p.querySelector('.para-label');
+      const name = norm(label.textContent);
+      if (ctx.win.getComputedStyle(label).display !== 'block') return '"' + name + '" label is not on its own line';
+      if (ctx.win.getComputedStyle(label).textTransform !== 'uppercase') return '"' + name + '" label is not set in capitals';
+      if (weight(p) > 500) return '"' + name + '" paragraph renders bold';
+      if (p.querySelector('strong, b')) return '"' + name + '" paragraph has bold text in it';
+      const n = wordCount(p);
+      if (n < 20 || n > 95) return '"' + name + '" paragraph is ' + n + ' words';
+    }
+  }
+
+  // A figure: captioned, inside its panel, and either a labelled SVG whose
+  // smallest text stays readable once scaled, or real tables with captions.
+  function figureProblem(ctx, panel, kind, words) {
+    const f = panel.querySelector('figure.viz');
+    if (!f) return 'no figure';
+    if (f.querySelector('img')) return 'the figure is a picture, not drawn from the data';
+    const cap = f.querySelector('figcaption');
+    if (!cap || norm(cap.textContent).length < 25) return 'the figure has no caption';
+    const fr = f.getBoundingClientRect(), pr = (panel.closest('.popup-body') || panel).getBoundingClientRect();
+    if (fr.right > pr.right + 1 || fr.left < pr.left - 1) return 'the figure sticks out of the pop-up';
+    if (f.scrollWidth > f.clientWidth + 1) return 'the figure\'s content is wider than the figure';
+    const text = norm(f.textContent);
+    for (const w of words) if (!text.includes(w)) return 'the figure does not say "' + w + '"';
+    if (kind === 'svg') {
+      const svg = f.querySelector('svg');
+      if (!svg || svg.getAttribute('role') !== 'img') return 'no SVG with role="img"';
+      if ((svg.getAttribute('aria-label') || '').length < 60) return 'the SVG has no real text alternative';
+      const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      const leaves = Array.from(svg.querySelectorAll('text')).flatMap(t => t.children.length ? Array.from(t.children) : [t]);
+      const smallest = Math.min(...leaves.map(t => parseFloat(ctx.win.getComputedStyle(t).fontSize) * scale));
+      if (smallest < 9) return 'the smallest diagram text renders at ' + smallest.toFixed(1) + 'px';
+    } else {
+      const tables = Array.from(f.querySelectorAll('table'));
+      if (!tables.length) return 'no table';
+      for (const t of tables) if (!t.querySelector('caption') || !t.querySelector('th')) return 'a chart table has no caption or headers';
+    }
+  }
+  const skillsOf = panel => Array.from(panel.querySelectorAll('.tags li')).map(li => norm(li.textContent));
+  // Skills are in priority order, but none is drawn differently from the others.
+  function sameLookProblem(ctx, panel) {
+    const lis = Array.from(panel.querySelectorAll('.tags li'));
+    if (lis.length < 4) return 'fewer than four skills';
+    const look = li => { const s = ctx.win.getComputedStyle(li); return s.color + '|' + s.borderTopColor + '|' + s.backgroundColor + '|' + s.fontWeight; };
+    const first = look(lis[0]);
+    const odd = lis.findIndex(li => look(li) !== first);
+    if (odd >= 0) return 'skill ' + (odd + 1) + ' (' + norm(lis[odd].textContent) + ') is drawn differently from the first';
+  }
+
+  // The focusable controls inside the dialog, in order: what Tab visits.
+  function stops(ctx) {
+    return qa(ctx, 'dialog.popup a[href], dialog.popup button, dialog.popup [tabindex]')
+      .filter(n => n.tabIndex >= 0 && !n.disabled && n.getClientRects().length);
+  }
+
+  /* ---- the Hero, with the dialog closed ---------------------------------- */
+
+  async function heroTests(ctx) {
+    const at = '@' + ctx.label;
+
+    await check('hero_pop_up_mode_is_on' + at, () =>
+      ctx.doc.documentElement.classList.contains('popups') ? null : 'html has no .popups class');
+
+    await check('hero_is_the_whole_page_top_bar_and_sections_hidden' + at, () => {
+      const hiddenAll = sel => qa(ctx, sel).every(e => ctx.win.getComputedStyle(e).display === 'none');
+      if (!qa(ctx, '.section').length) return 'no .section in index.html to hide';
+      if (!hiddenAll('.topbar')) return 'the top bar is visible';
+      if (!hiddenAll('.section')) return 'a Section is visible under the Hero';
+    });
+
+    await check('hero_fits_one_screen_without_scrolling' + at, () => {
+      const h = ctx.doc.documentElement.scrollHeight;
+      return h <= ctx.H + 1 ? null : 'page is ' + h + 'px tall in a ' + ctx.H + 'px window';
+    });
+
+    await check('hero_section_buttons_are_about_experience_projects' + at, () => {
+      const names = qa(ctx, '.hero-sections a').map(a => norm(a.textContent));
+      return JSON.stringify(names) === JSON.stringify(['About', 'Experience', 'Projects']) ? null :
+        'buttons are ' + JSON.stringify(names);
+    });
+
+    await check('hero_has_no_view_projects_or_get_in_touch_buttons' + at, () => {
+      const t = norm(q(ctx, '#top').textContent);
+      return /view projects|get in touch/i.test(t) ? 'Hero still says: ' + t.match(/view projects|get in touch/i)[0] : null;
+    });
+
+    await check('hero_contact_links_are_email_linkedin_github' + at, () => {
+      const hrefs = qa(ctx, '.hero-contact a').map(a => a.getAttribute('href'));
+      const want = ['mailto:k30richards@gmail.com', 'https://www.linkedin.com/in/kdrichards30', 'https://github.com/k30richards'];
+      return JSON.stringify(hrefs) === JSON.stringify(want) ? null : 'contact links are ' + JSON.stringify(hrefs);
+    });
+
+    for (const a of qa(ctx, '.hero-sections a, .hero-contact a')) {
+      await check('hero_link_' + norm(a.textContent).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
+        () => hitTarget(ctx, a));
+    }
+  }
+
+  /* ---- the dialog: semantics, focus, closing ------------------------------ */
+
+  async function dialogTests(ctx) {
+    const at = '@' + ctx.label;
+    const opener = heroLink(ctx, 'About');
+    await open(ctx, 'About');
+
+    await check('dialog_is_a_real_modal_dialog_labelled_by_its_heading' + at, () => {
+      const d = dlg(ctx);
+      if (!d) return 'no <dialog class="popup">';
+      if (!d.open) return 'dialog is not open after clicking About';
+      if (!d.matches(':modal')) return 'not opened with showModal()';
+      if (d.getAttribute('aria-modal') !== 'true') return 'aria-modal is not "true"';
+      const h = ctx.doc.getElementById(d.getAttribute('aria-labelledby') || '');
+      if (!h || h.tagName !== 'H2') return 'aria-labelledby does not point at an <h2>';
+      if (heading(ctx) !== '01 About') return 'heading reads ' + JSON.stringify(heading(ctx));
+    });
+
+    await check('focus_moves_into_the_dialog_on_open' + at, () => {
+      const a = ctx.doc.activeElement;
+      return a && a.id === 'popup-title' ? null : 'focus is on ' + describeEl(a) + ', not the dialog heading';
+    });
+
+    await check('page_behind_cannot_scroll_while_open' + at, () => {
+      const root = ctx.doc.documentElement;
+      if (!root.classList.contains('popup-open')) return 'html has no .popup-open';
+      return ctx.win.getComputedStyle(root).overflow === 'hidden' ? null : 'html overflow is ' + ctx.win.getComputedStyle(root).overflow;
+    });
+
+    await check('tab_cycles_inside_the_dialog_forwards_and_backwards' + at, () => {
+      const list = stops(ctx);
+      if (list.length < 2) return 'fewer than two focusable controls: ' + list.length;
+      const first = list[0], last = list[list.length - 1];
+      last.focus();
+      const fwd = key(ctx, last, 'Tab');
+      if (!fwd.defaultPrevented || ctx.doc.activeElement !== first)
+        return 'Tab from the last control (' + describeEl(last) + ') did not wrap to ' + describeEl(first);
+      const back = key(ctx, first, 'Tab', { shiftKey: true });
+      if (!back.defaultPrevented || ctx.doc.activeElement !== last)
+        return 'Shift+Tab from the first control did not wrap to ' + describeEl(last);
+    });
+
+    await check('esc_is_left_to_the_native_dialog' + at, () => {
+      const e = key(ctx, ctx.doc.activeElement || dlg(ctx), 'Escape');
+      if (e.defaultPrevented) return 'the page cancels the Escape key';
+      return dlg(ctx).matches(':modal') ? null : 'dialog is not modal, so Esc would not close it';
+    });
+
+    await check('a_click_inside_the_card_keeps_it_open' + at, async () => {
+      const card = q(ctx, '.popup-card');
+      card.dispatchEvent(new ctx.win.PointerEvent('pointerdown', { bubbles: true }));
+      card.dispatchEvent(new ctx.win.MouseEvent('click', { bubbles: true }));
+      await settle();
+      return dlg(ctx).open ? null : 'dialog closed on a click inside the card';
+    });
+
+    await check('x_button_closes_and_focus_returns_to_the_opener' + at, async () => {
+      if (!q(ctx, '.popup-close').getAttribute('aria-label')) return 'the X button has no accessible name';
+      await closeByButton(ctx);
+      if (dlg(ctx).open) return 'dialog still open after X';
+      if (ctx.doc.documentElement.classList.contains('popup-open')) return 'html still has .popup-open';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement) + ', not the About button';
+    });
+
+    await open(ctx, 'About');
+    await check('click_on_the_dimmed_page_closes_and_focus_returns' + at, async () => {
+      const d = dlg(ctx);
+      d.dispatchEvent(new ctx.win.PointerEvent('pointerdown', { bubbles: true }));
+      d.dispatchEvent(new ctx.win.MouseEvent('click', { bubbles: true }));
+      await settle();
+      if (d.open) return 'dialog still open after clicking the dimmed page';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+
+    await open(ctx, 'About');
+    await check('closing_the_way_esc_does_restores_focus_and_scrolling' + at, async () => {
+      dlg(ctx).close();          // what the browser does for Esc
+      await settle();
+      if (ctx.doc.documentElement.classList.contains('popup-open')) return 'html still has .popup-open';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+  }
+
+  /* ---- Previous and Next --------------------------------------------------- */
+
+  async function stepTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'About');
+    const label = which => step(ctx, which).getAttribute('aria-label');
+    const live = () => norm(q(ctx, 'dialog.popup [aria-live]').textContent);
+
+    await check('about_has_next_but_no_previous' + at, () => {
+      if (visible(step(ctx, 'prev'))) return 'About shows a Previous button';
+      return visible(step(ctx, 'next')) && label('next') === 'Next: Experience' ? null :
+        'Next is ' + (visible(step(ctx, 'next')) ? JSON.stringify(label('next')) : 'missing');
+    });
+
+    step(ctx, 'next').click(); await settle();
+    await check('next_goes_to_experience_with_both_arrows' + at, () => {
+      if (heading(ctx) !== '02 Experience') return 'heading reads ' + JSON.stringify(heading(ctx));
+      if (label('prev') !== 'Previous: About' || label('next') !== 'Next: Projects')
+        return 'labels are ' + JSON.stringify([label('prev'), label('next')]);
+      if (!visible(step(ctx, 'prev')) || !visible(step(ctx, 'next'))) return 'an arrow is hidden mid-way';
+      if (!/Experience, 2 of 3/.test(live())) return 'live region says ' + JSON.stringify(live());
+    });
+
+    step(ctx, 'next').click(); await settle();
+    await check('projects_has_previous_but_no_next_and_focus_stays_in_the_dialog' + at, () => {
+      if (heading(ctx) !== '03 Projects') return 'heading reads ' + JSON.stringify(heading(ctx));
+      if (visible(step(ctx, 'next'))) return 'Projects shows a Next button (it must not wrap)';
+      if (label('prev') !== 'Previous: Experience') return 'Previous is ' + JSON.stringify(label('prev'));
+      const a = ctx.doc.activeElement;
+      return a === step(ctx, 'prev') ? null : 'focus is on ' + describeEl(a) + ', not the Previous button';
+    });
+
+    step(ctx, 'prev').click(); await settle();
+    step(ctx, 'prev').click(); await settle();
+    await check('previous_walks_back_to_about' + at, () => {
+      if (heading(ctx) !== '01 About') return 'heading reads ' + JSON.stringify(heading(ctx));
+      return ctx.doc.activeElement === step(ctx, 'next') ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+
+    await closeByButton(ctx);
+  }
+
+  /* ---- About ---------------------------------------------------------------- */
+
+  async function aboutTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'About');
+
+    await check('about_bio_is_three_paragraphs_in_one_font_size' + at, () => {
+      const ps = qa(ctx, '.popup-bio p');
+      if (ps.length !== 3) return 'found ' + ps.length + ' bio paragraphs';
+      const look = p => { const s = ctx.win.getComputedStyle(p); return s.fontSize + ' ' + s.fontFamily; };
+      const sizes = ps.map(look);
+      return sizes.every(s => s === sizes[0]) ? null : 'paragraphs differ: ' + JSON.stringify(sizes);
+    });
+
+    await check('about_quick_facts_are_based_in_education_status_seeking' + at, () => {
+      const labels = qa(ctx, '.popup-fact-label').map(e => norm(e.textContent).toLowerCase());
+      return JSON.stringify(labels) === JSON.stringify(['based in', 'education', 'status', 'seeking']) ? null :
+        'facts are ' + JSON.stringify(labels);
+    });
+
+    await check('about_seeking_spans_the_full_row' + at, () => {
+      const row = q(ctx, '.popup-facts').getBoundingClientRect().width;
+      const seeking = qa(ctx, '.popup-fact').find(f => /seeking/i.test(f.textContent)).getBoundingClientRect().width;
+      return Math.abs(row - seeking) <= 1 ? null : 'Seeking is ' + seeking.toFixed(0) + 'px in a ' + row.toFixed(0) + 'px row';
+    });
+
+    await check('about_toolkit_skills_sit_in_the_right_categories' + at, () => {
+      const groups = qa(ctx, 'dialog.popup .toolkit-group');
+      const got = {};
+      for (const g of groups) got[norm(g.querySelector('.toolkit-name').textContent)] = Array.from(g.querySelectorAll('li')).map(li => norm(li.textContent));
+      const want = {
+        'Modeling': ['PyTorch', 'TensorFlow', 'Scikit-learn', 'Transformers', 'Multimodal data analysis'],
+        'Data': ['Python', 'Pandas', 'NumPy', 'SQL', 'ETL'],
+        'Cloud & reporting': ['Snowflake', 'Azure', 'Tableau'],
+        'LLMs': ['Automation', 'Prompt design', 'Extraction from unstructured sources'],
+        'Applied & edge ML': ['Applied AI research', 'Medical image analysis', 'Model optimization', 'Embedded ML']
+      };
+      if (JSON.stringify(Object.keys(got)) !== JSON.stringify(Object.keys(want))) return 'groups are ' + JSON.stringify(Object.keys(got));
+      for (const k of Object.keys(want)) if (JSON.stringify(got[k]) !== JSON.stringify(want[k])) return k + ' holds ' + JSON.stringify(got[k]) + ', expected ' + JSON.stringify(want[k]);
+    });
+
+    await closeByButton(ctx);
+  }
+
+  /* ---- Experience and Projects: tabs ----------------------------------------- */
+
+  async function tabsA11yAndKeys(ctx, sectionName, expectedTabs) {
+    const at = '@' + ctx.label, s = sectionName.toLowerCase();
+    const tabs = openTabs(ctx);
+
+    await check(s + '_tabs_follow_the_aria_tabs_pattern' + at, () => {
+      const list = q(ctx, '.popup-page:not([hidden]) [role="tablist"]');
+      if (!list || !list.getAttribute('aria-label')) return 'no labelled tablist';
+      if (tabs.length !== expectedTabs) return 'found ' + tabs.length + ' tabs, expected ' + expectedTabs;
+      for (const t of tabs) {
+        const p = ctx.doc.getElementById(t.getAttribute('aria-controls') || '');
+        if (!p || p.getAttribute('role') !== 'tabpanel' || p.getAttribute('aria-labelledby') !== t.id)
+          return 'tab "' + norm(t.textContent) + '" is not linked to a tabpanel';
+      }
+      const selected = tabs.filter(t => t.getAttribute('aria-selected') === 'true');
+      if (selected.length !== 1) return selected.length + ' tabs are selected';
+      const tabbable = tabs.filter(t => t.tabIndex === 0);
+      return tabbable.length === 1 && tabbable[0] === selected[0] ? null : 'only the selected tab should be in Tab order';
+    });
+
+    await check(s + '_arrow_keys_home_and_end_move_between_tabs' + at, () => {
+      tabs[0].focus();
+      key(ctx, tabs[0], 'ArrowRight');
+      if (ctx.doc.activeElement !== tabs[1] || tabs[1].getAttribute('aria-selected') !== 'true') return 'ArrowRight did not select tab 2';
+      key(ctx, tabs[1], 'End');
+      const last = tabs[tabs.length - 1];
+      if (ctx.doc.activeElement !== last || last.getAttribute('aria-selected') !== 'true') return 'End did not select the last tab';
+      key(ctx, last, 'Home');
+      if (ctx.doc.activeElement !== tabs[0] || tabs[0].getAttribute('aria-selected') !== 'true') return 'Home did not select the first tab';
+    });
+
+    await check(s + '_tab_dates_line_up_along_the_bottom' + at, () => {
+      const rows = {};
+      for (const t of tabs) (rows[Math.round(t.getBoundingClientRect().top)] = rows[Math.round(t.getBoundingClientRect().top)] || []).push(t);
+      for (const row of Object.values(rows)) {
+        const bottoms = row.map(t => Math.round(t.querySelector('.popup-tab-when').getBoundingClientRect().bottom));
+        if (!bottoms.every(b => Math.abs(b - bottoms[0]) <= 1)) return 'dates sit at ' + JSON.stringify(bottoms);
+      }
+    });
+  }
+
+  async function experienceTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'Experience');
+    const tabs = openTabs(ctx);
+    const tabText = t => ({ name: norm(t.querySelector('.popup-tab-name').textContent), when: norm(t.querySelector('.popup-tab-when').textContent) });
+
+    await check('experience_tabs_show_employer_and_full_dates' + at, () => {
+      const got = tabs.map(t => tabText(t));
+      const want = [
+        { name: 'Locust Walk', when: 'Jun 2026 ' + DASH + ' Aug 2026' },
+        { name: 'Worcester Polytechnic Institute', when: 'May 2024 ' + DASH + ' Aug 2024' }
+      ];
+      return JSON.stringify(got) === JSON.stringify(want) ? null : 'tabs are ' + JSON.stringify(got);
+    });
+
+    await check('experience_panel_has_only_title_description_and_skills' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const p = shown(ctx), t = norm(p.textContent);
+        if (!p.querySelector('.popup-tabpanel-title')) return 'tab ' + (i + 1) + ' has no role title';
+        if (!p.querySelector('.role-text')) return 'tab ' + (i + 1) + ' has no description';
+        if (!p.querySelector('.tags li')) return 'tab ' + (i + 1) + ' lists no skills';
+        if (/\b(19|20)\d\d\b/.test(t)) return 'tab ' + (i + 1) + ' repeats a date: ' + t.match(/\b(19|20)\d\d\b/)[0];
+        if (/Boston, MA|Worcester, MA/.test(t)) return 'tab ' + (i + 1) + ' shows a location line';
+      }
+    });
+
+    await check('experience_roles_are_ai_intern_and_research_associate' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).querySelector('.popup-tabpanel-title').textContent);
+      tabs[1].click(); const b = norm(shown(ctx).querySelector('.popup-tabpanel-title').textContent);
+      return a === 'AI Intern' && b === 'Research Associate' ? null : 'titles are ' + JSON.stringify([a, b]);
+    });
+
+    await check('experience_descriptions_name_the_technical_work' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).textContent);
+      tabs[1].click(); const b = norm(shown(ctx).textContent);
+      for (const w of ['Claude API', 'whitelist', 'Apollo']) if (!a.includes(w)) return 'Locust Walk text lacks "' + w + '"';
+      for (const w of ['Chain of Thought', '1,091', 'F1']) if (!b.includes(w)) return 'WPI text lacks "' + w + '"';
+    });
+
+    await check('experience_text_is_a_bold_overview_then_four_labelled_paragraphs_and_a_figure' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const why = structureProblem(ctx, shown(ctx), EXPERIENCE_LABELS);
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    await check('experience_overview_says_where_the_work_happened' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).querySelector('.role-text > p.overview').textContent);
+      tabs[1].click(); const b = norm(shown(ctx).querySelector('.role-text > p.overview').textContent);
+      if (!/Locust Walk, a biopharma advisory firm in Boston/.test(a)) return 'Locust Walk overview does not say where: ' + a.slice(0, 80);
+      if (!/WPI.s NSF REU program/.test(b)) return 'WPI overview does not say where: ' + b.slice(0, 80);
+    });
+
+    await check('experience_text_says_only_what_is_accurate' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).textContent);
+      tabs[1].click(); const b = norm(shown(ctx).textContent);
+      if (!/ETL scripts/.test(a)) return 'Locust Walk text does not mention the ETL scripts';
+      if (/(load|loads|loaded)\s+(straight|directly)\s+into/i.test(a)) return 'Locust Walk text says the output loaded straight into the CRM';
+      if (!/without creating duplicates/i.test(a)) return 'Locust Walk text does not say the ETL avoids duplicates';
+      if (!/80-image sample, 20 per stage/.test(b)) return 'WPI text does not describe the 80-image sample';
+      if (!/two images per stage, one that clearly matched its stage and one an observer could easily mislabel/.test(b)) return 'WPI text does not describe the two images per stage';
+      if (!/ten times/.test(b)) return 'WPI text does not say each prompt ran ten times';
+      if (/(all|each of the|every one of the) 1,091/i.test(b)) return 'WPI text claims all 1,091 images were run';
+    });
+
+    await check('locust_walk_text_describes_the_tools_the_way_kobe_wants' + at, () => {
+      tabs[0].click();
+      const box = shown(ctx).querySelector('.role-text');
+      const prose = Array.from(box.querySelectorAll(':scope > p')).map(p => norm(p.textContent)).join(' ');
+      if (/\bClay\b/i.test(shown(ctx).textContent)) return 'the Locust Walk text names Clay';
+      if (/Jina|Playwright/.test(prose)) return 'the Locust Walk text names Jina or Playwright (only the diagram may)';
+      if (!/open source browser automation tools and RAG frameworks/.test(prose)) return 'the text does not call them open source browser automation tools and RAG frameworks';
+      if (!/Apollo, a sales intelligence platform/.test(prose)) return 'the text does not introduce Apollo as a sales intelligence platform';
+      if (!/explored a range of CRM, enrichment and AI tools, compared their costs and functionality, and picked the best fit/.test(prose)) return 'the text does not say the tools were explored, compared on cost and function, and the best fit picked';
+      if (!/The business development team.s outreach depended/.test(prose)) return 'the problem paragraph does not name the outreach dependency';
+      if (/and automation|deal sourcing/i.test(prose)) return 'the problem paragraph still says "and automation" or "deal sourcing"';
+      if (!/In the time left after the build, I ran the pipeline on a first batch of 211 firms/.test(prose)) return 'the result does not frame the 211 firms as a first batch run in the time left';
+      if (/(only|just|all I (was able|could))/i.test(norm(box.querySelector('p:last-of-type').textContent))) return 'the result reads as an apology for the 211 firms';
+    });
+
+    await check('locust_walk_figure_is_the_pipeline_flow_diagram' + at, () => {
+      tabs[0].click();
+      return figureProblem(ctx, shown(ctx), 'svg',
+        ['Company list', 'Find leadership and board pages', 'Jina', 'Playwright', 'Claude API', 'title whitelist', 'Apollo', 'ETL scripts', 'CRM']);
+    });
+
+    await check('wpi_figure_ranks_the_six_strategies_by_accuracy_and_describes_each' + at, () => {
+      tabs[1].click();
+      const why = figureProblem(ctx, shown(ctx), 'table', ['Accuracy on the 80-image sample (%)', 'Chain of Thought', 'Few-Shot', 'Zero-Shot']);
+      if (why) return why;
+      const rows = Array.from(shown(ctx).querySelectorAll('table.strategies tbody tr'));
+      if (rows.length !== 6) return 'found ' + rows.length + ' strategy rows, expected 6';
+      const want = [['Chain of Thought', '72.5', /step by step/], ['CO-STAR', '70.0', /context, objective, style, tone, audience and response/],
+                    ['Zero-Shot', '70.0', /no examples/], ['Tree of Thought', '66.2', /several viewpoints/],
+                    ['TIDD-EC', '60.0', /task, instructions, do.s, don.ts, examples and content/], ['Few-Shot', '53.7', /a few worked examples/]];
+      for (let i = 0; i < want.length; i++) {
+        const r = rows[i];
+        const name = norm(r.querySelector('.bar-name').textContent), desc = norm(r.querySelector('.bar-desc').textContent);
+        const val = norm(r.querySelector('.bar-val').textContent);
+        if (name !== want[i][0] || val !== want[i][1]) return 'row ' + (i + 1) + ' is ' + JSON.stringify([name, val]) + ', expected ' + JSON.stringify([want[i][0], want[i][1]]);
+        if (!want[i][2].test(desc)) return name + ' description is ' + JSON.stringify(desc);
+        if (desc.split(' ').length > 22) return name + ' description is longer than one short sentence';
+        const w = parseFloat(r.querySelector('.bar').style.getPropertyValue('--w'));
+        if (Math.abs(w - parseFloat(want[i][1])) > 0.1) return name + ' bar is ' + w + '% wide for a value of ' + want[i][1];
+      }
+      if (!rows[0].querySelector('.bar.best') || shown(ctx).querySelectorAll('.bar.best').length !== 1) return 'only Chain of Thought should be highlighted';
+    });
+
+    await check('wpi_result_mentions_the_stage_finding_and_nothing_extra' + at, () => {
+      tabs[1].click();
+      const result = norm(shown(ctx).querySelector('.role-text > p:last-of-type').textContent);
+      if (!/Early-stage wounds were the hardest to call: Chain of Thought scored 50% on Stage 1 but 90% on Stage 3/.test(result)) return 'the result lacks the stage finding';
+      if (/PIID classification scale|20 images per stage|minimal tuning/.test(result)) return 'the result carries extra points that were not wanted';
+    });
+
+    await check('experience_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
+      const want = [
+        ['Python', 'LLMs & AI Tooling', 'ETL', 'API Integration', 'Workflow Automation', 'CRM Systems', 'Technology Evaluation'],
+        ['Prompt Engineering', 'Applied AI Research', 'Medical Image Analysis', 'Python']
+      ];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const got = skillsOf(shown(ctx));
+        if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
+        const why = sameLookProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    tabs[0].click();
+    await tabsA11yAndKeys(ctx, 'Experience', 2);
+    await closeByButton(ctx);
+  }
+
+  async function projectsTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'Projects');
+    const tabs = openTabs(ctx);
+    const tabText = t => ({ name: norm(t.querySelector('.popup-tab-name').textContent), when: norm(t.querySelector('.popup-tab-when').textContent) });
+
+    await check('projects_tabs_are_the_project_titles_with_full_dates' + at, () => {
+      const got = tabs.map(t => tabText(t));
+      const want = [
+        { name: 'Unified Compensation Modeling Engine', when: 'Jan 2026 ' + DASH + ' May 2026' },
+        { name: 'Edge-Based Smart Lock System', when: 'Jan 2025 ' + DASH + ' May 2025' },
+        { name: 'Multimodal Stock Movement Prediction', when: 'Jan 2025 ' + DASH + ' May 2025' }
+      ];
+      return JSON.stringify(got) === JSON.stringify(want) ? null : 'tabs are ' + JSON.stringify(got);
+    });
+
+    await check('projects_have_no_topic_filter_chips' + at, () => {
+      const chips = qa(ctx, '.popup-chip, [aria-pressed], .popup-filters');
+      return chips.length ? 'found ' + chips.length + ' filter control(s)' : null;
+    });
+
+    await check('projects_panel_is_description_and_skills_without_the_title_again' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const p = shown(ctx), t = norm(p.textContent);
+        if (!p.querySelector('.card-text')) return 'tab ' + (i + 1) + ' has no description';
+        if (!p.querySelector('.tags li')) return 'tab ' + (i + 1) + ' lists no skills';
+        if (p.querySelector('h3, .popup-tabpanel-title')) return 'tab ' + (i + 1) + ' repeats the project title as a heading';
+        if (t.includes(tabText(tabs[i]).name)) return 'tab ' + (i + 1) + ' repeats the project title';
+        if (/\b(19|20)\d\d\b/.test(t)) return 'tab ' + (i + 1) + ' repeats a date';
+      }
+    });
+
+    await check('projects_source_links_are_kept_for_smart_lock_and_stock' + at, () => {
+      tabs[1].click();
+      const lock = shown(ctx).querySelector('a[href="https://github.com/TC4451/Wake_word_sign_digits"]');
+      tabs[2].click();
+      const stock = shown(ctx).querySelector('a[href="https://github.com/atiwari18/BuffERT"]');
+      return lock && stock ? null : 'missing Source link: ' + (lock ? '' : 'Smart Lock ') + (stock ? '' : 'Stock');
+    });
+
+    await check('projects_descriptions_state_their_numbers_honestly' + at, () => {
+      tabs[0].click(); const comp = norm(shown(ctx).textContent);
+      tabs[1].click(); const lock = norm(shown(ctx).textContent);
+      tabs[2].click(); const stock = norm(shown(ctx).textContent);
+      if (!/star schema/i.test(comp) || !/expects it to save over 300 hours/.test(comp))
+        return 'compensation text must name the star schema and say the team "expects it to save over 300 hours"';
+      if (!/four of the six franchises, the only four we had access to, since the other two were more complex and not modeled in Excel/.test(comp))
+        return 'compensation text must explain that four franchises were the only ones the team had access to';
+      if (/\bsaved\b[^.]*300/.test(comp)) return 'compensation text claims 300 hours were saved';
+      if (!lock.includes('79 KB to 25 KB') || !lock.includes('108 to 36 microseconds') || !lock.includes('96.1% to 98.3%'))
+        return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
+      if (/115/.test(lock)) return 'smart lock text quotes the baseline 115 mW next to the quantized model';
+      if (/Raspberry Pi \d/.test(lock)) return 'smart lock text names a Raspberry Pi model number';
+      if (!stock.includes('FinBERT') || !stock.includes('25 days')) return 'stock text must name FinBERT and the 25-day data limit';
+    });
+
+    await check('projects_text_is_a_bold_overview_then_four_labelled_paragraphs_and_a_figure' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const why = structureProblem(ctx, shown(ctx), PROJECT_LABELS);
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    await check('projects_overview_says_where_the_work_happened' + at, () => {
+      const want = [/For my graduate capstone at WPI, sponsored by a medical device company/,
+                    /In a WPI embedded machine learning course/, /In a WPI deep learning course/];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const o = norm(shown(ctx).querySelector('.card-text > p.overview').textContent);
+        if (!want[i].test(o)) return 'tab ' + (i + 1) + ' overview does not say where: ' + o.slice(0, 80);
+      }
+    });
+
+    await check('projects_text_claims_only_what_was_mine' + at, () => {
+      tabs[0].click(); const comp = norm(shown(ctx).textContent);
+      tabs[1].click(); const lock = norm(shown(ctx).textContent);
+      tabs[2].click(); const stock = norm(shown(ctx).textContent);
+      if (!/I designed and built the Tableau dashboards/.test(comp)) return 'compensation text does not claim the Tableau dashboards';
+      if (!/My teammates built the Streamlit app/.test(comp)) return 'compensation text does not credit teammates with the Streamlit app';
+      if (/\bI\b[^.]*\b(built|designed|created|wrote)\b[^.]*Streamlit/.test(comp)) return 'compensation text claims the Streamlit app';
+      if (/\bI\b[^.]*\b(designed|built|created|wrote)\b[^.]*(data model|star schema|calculation engine|stored procedure)/.test(comp)) return 'compensation text claims the shared data model or engine';
+      if (!/joint effort across all four of us/.test(comp)) return 'compensation text does not say the data model and engine were a joint effort';
+      if (!/I compressed the wake word model/.test(lock) || !/Teammates trained the models and wrote the Pi software/.test(lock)) return 'smart lock text does not split the team work from the compression';
+      if (/\bI\b[^.]*\b(trained|wrote the Pi software|binarized)/.test(lock)) return 'smart lock text claims work that was a teammate\'s';
+      if (!/teammates built and tuned the FinBERT sentiment models/.test(stock)) return 'stock text does not credit teammates with the FinBERT models';
+      for (const w of ['15 S&P 500 stocks', 'BiLSTM', 'multi-task transformer', 'dual-stream transformer', 'autoencoder', 'focal loss'])
+        if (!stock.includes(w)) return 'stock text lacks "' + w + '"';
+    });
+
+    await check('compensation_figure_is_the_data_flow_with_my_part_marked' + at, () => {
+      tabs[0].click();
+      const why = figureProblem(ctx, shown(ctx), 'svg',
+        ['Sales data', 'Star schema', 'Streamlit app', 'Rules schema', 'Calculation engine', 'Rule eligibility', 'Tier 1', 'Unified payout table', 'Tableau dashboards']);
+      if (why) return why;
+      const f = shown(ctx).querySelector('figure.viz');
+      const group = cls => Array.from(f.querySelectorAll('rect.' + cls)).map(r => norm(r.nextElementSibling.textContent)).join(' | ');
+      if (!/Tableau dashboards/.test(group('v-mine'))) return 'the Tableau box is not marked as mine';
+      if (/Streamlit/.test(group('v-mine'))) return 'the Streamlit box is marked as mine';
+      if (!/Streamlit app/.test(group('v-dim'))) return 'the Streamlit box is not marked as the teammates\'';
+    });
+
+    await check('smart_lock_figure_charts_size_and_accuracy_for_every_method' + at, () => {
+      tabs[1].click();
+      const why = figureProblem(ctx, shown(ctx), 'table', ['Model size (KB)', 'Accuracy (%)', '79.1', '25.2', '10.3', '98.3', '50.0']);
+      if (why) return why;
+      const tables = Array.from(shown(ctx).querySelectorAll('table.bars'));
+      if (tables.length !== 2) return 'found ' + tables.length + ' charts, expected size and accuracy';
+      for (const t of tables) if (t.querySelectorAll('tbody tr').length !== 9) return 'a chart has ' + t.querySelectorAll('tbody tr').length + ' rows, expected 9';
+      const w = (t, name) => parseFloat(Array.from(t.querySelectorAll('tr')).find(r => norm((r.querySelector('th') || { textContent: '' }).textContent) === name).querySelector('.bar').style.getPropertyValue('--w'));
+      if (!(w(tables[0], 'Original') > w(tables[0], 'Dynamic range') * 2.5)) return 'the Original size bar should be about 3x the dynamic range bar';
+      if (!(w(tables[1], 'Full integer') < 60 && w(tables[1], 'Dynamic range') > 95)) return 'the accuracy bars do not show full integer falling to 50% and dynamic range at 98%';
+      if (!tables.every(t => /Dynamic range/.test(norm(t.querySelector('.bar.best').closest('tr').textContent)))) return 'dynamic range is not the highlighted row in both charts';
+    });
+
+    await check('stock_figure_is_the_dual_stream_model_with_my_parts_marked' + at, () => {
+      tabs[2].click();
+      const why = figureProblem(ctx, shown(ctx), 'svg',
+        ['Price history', 'News headlines', 'Price features', 'FinBERT', 'Autoencoder', 'Price encoder', 'Sentiment encoder', 'Cross-attention', 'Prediction', 'up or down']);
+      if (why) return why;
+      const last = Array.from(shown(ctx).querySelectorAll('figure.viz rect.v-box')).pop();
+      const title = last.nextElementSibling, sub = title.nextElementSibling;
+      if (norm(title.textContent) !== 'Prediction' || norm(sub.textContent) !== 'up or down') return 'the last box reads ' + JSON.stringify([norm(title.textContent), norm(sub.textContent)]);
+      if (parseInt(ctx.win.getComputedStyle(title).fontWeight, 10) < 600) return 'the word Prediction is not bold';
+      if (parseInt(ctx.win.getComputedStyle(sub).fontWeight, 10) >= 600) return 'the line beneath Prediction is bold';
+      const f = shown(ctx).querySelector('figure.viz');
+      const group = cls => Array.from(f.querySelectorAll('rect.' + cls)).map(r => norm(r.nextElementSibling.textContent)).join(' | ');
+      if (!/Cross-attention/.test(group('v-mine')) || !/Autoencoder/.test(group('v-mine'))) return 'the fusion boxes are not marked as mine';
+      if (/FinBERT/.test(group('v-mine'))) return 'the FinBERT box is marked as mine';
+      if (!/FinBERT/.test(group('v-dim'))) return 'the FinBERT box is not marked as the teammates\'';
+    });
+
+    await check('projects_skills_are_listed_in_priority_order_and_all_look_the_same' + at, () => {
+      const want = [
+        ['Snowflake', 'SQL', 'Tableau', 'Compensation Planning Analysis'],
+        ['Model Optimization', 'TensorFlow', 'Embedded ML', 'Quantization & Pruning', 'Raspberry Pi'],
+        ['PyTorch', 'Transformers', 'Multimodal Data Analysis', 'Time-Series Modeling', 'NLP', 'Model Evaluation']
+      ];
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const got = skillsOf(shown(ctx));
+        if (JSON.stringify(got) !== JSON.stringify(want[i])) return 'tab ' + (i + 1) + ' skills are ' + JSON.stringify(got);
+        if (got.includes('Streamlit')) return 'tab ' + (i + 1) + ' lists Streamlit as a skill';
+        const why = sameLookProblem(ctx, shown(ctx));
+        if (why) return 'tab ' + (i + 1) + ': ' + why;
+      }
+    });
+
+    tabs[0].click();
+    await tabsA11yAndKeys(ctx, 'Projects', 3);
+    await closeByButton(ctx);
+  }
+
+  /* ---- fit and size at this viewport ------------------------------------------- */
+
+  async function layoutTests(ctx) {
+    const at = '@' + ctx.label;
+    for (const name of ['About', 'Experience', 'Projects']) {
+      await open(ctx, name);
+      const n = name.toLowerCase();
+
+      await check(n + '_popup_card_fits_inside_the_window' + at, () => {
+        const r = q(ctx, '.popup-card').getBoundingClientRect();
+        return r.top >= -0.5 && r.left >= -0.5 && r.right <= ctx.W + 0.5 && r.bottom <= ctx.H + 0.5 ? null :
+          'card is at ' + JSON.stringify([r.left, r.top, r.right, r.bottom].map(Math.round)) + ' in a ' + ctx.label + ' window';
+      });
+
+      await check(n + '_popup_has_no_sideways_scroll' + at, () => {
+        const body = q(ctx, '.popup-body');
+        if (body.scrollWidth > body.clientWidth + 1) return 'pop-up body scrolls sideways';
+        return ctx.doc.documentElement.scrollWidth <= ctx.W + 1 ? null : 'page is wider than the window';
+      });
+
+      await check(n + '_popup_body_scrolls_when_content_is_taller' + at, () => {
+        const body = q(ctx, '.popup-body'), s = ctx.win.getComputedStyle(body);
+        return /auto|scroll/.test(s.overflowY) ? null : 'overflow-y is ' + s.overflowY;
+      });
+
+      await check(n + '_arrows_are_44px_targets_and_icon_only_on_phones' + at, () => {
+        const btns = [step(ctx, 'prev'), step(ctx, 'next')].filter(visible);
+        for (const b of btns) {
+          const r = b.getBoundingClientRect();
+          if (r.height < 43.5) return 'an arrow is only ' + r.height.toFixed(1) + 'px tall';
+          const nameW = b.querySelector('.popup-step-name').getBoundingClientRect().width;
+          if (ctx.W <= 440 && (nameW > 1.5 || r.width > 46)) return 'arrow is ' + r.width.toFixed(0) + 'px wide on a phone, name ' + nameW.toFixed(0) + 'px';
+          if (ctx.W >= 768 && nameW < 20) return 'arrow hides its Section name on a wide screen';
+        }
+      });
+
+      await check(n + '_close_button_is_a_44px_target' + at, () => {
+        const r = q(ctx, '.popup-close').getBoundingClientRect();
+        return r.width >= 43.5 && r.height >= 43.5 ? null : 'X button is ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1);
+      });
+
+      await closeByButton(ctx);
+    }
+  }
+
+  /* ---- deep links, no-JavaScript fallback, global guards ---------------------- */
+
+  async function deepLinkTests(w, h, hash, want) {
+    const ctx = await openFrame(w, h, { hash });
+    await check('link_to_' + hash.slice(1) + '_opens_that_popup@' + ctx.label, () => {
+      const d = dlg(ctx);
+      if (!d || !d.open) return 'no dialog open after loading ' + hash;
+      return heading(ctx) === want ? null : 'heading reads ' + JSON.stringify(heading(ctx));
+    });
+  }
+
+  async function noScriptTests(w, h) {
+    const ctx = await openFrame(w, h, { noscript: true });
+    const at = '@' + ctx.label + '_no_javascript';
+    await check('without_javascript_the_long_page_shows_every_section' + at, () => {
+      if (ctx.doc.documentElement.classList.contains('popups')) return 'pop-up mode is on without scripts';
+      if (dlg(ctx)) return 'a dialog exists without scripts';
+      for (const id of ['about', 'experience', 'work']) {
+        const s = ctx.doc.getElementById(id);
+        if (!s) return '#' + id + ' is missing';
+        if (ctx.win.getComputedStyle(s).display === 'none') return '#' + id + ' is hidden';
+      }
+    });
+    await check('without_javascript_the_hero_buttons_jump_to_real_sections' + at, () => {
+      const links = qa(ctx, '.hero-sections a');
+      if (links.length !== 3) return 'found ' + links.length + ' Hero buttons';
+      for (const a of links) if (!ctx.doc.querySelector(a.getAttribute('href'))) return a.getAttribute('href') + ' goes nowhere';
+    });
+    await check('without_javascript_the_contact_links_are_still_in_the_hero' + at, () =>
+      qa(ctx, '.hero-contact a').length === 3 ? null : 'Hero contact links are missing');
+  }
+
+  async function globalTests() {
+    const ctx = await openFrame(1280, 800);
+
+    await check('there_is_no_contact_section_or_contact_popup', () => {
+      if (ctx.doc.getElementById('contact')) return '#contact still exists';
+      return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('no_skills_list_or_toolkit_lists_scripting', () => {
+      const bad = qa(ctx, '.tags li, .toolkit-group li').find(li => /scripting/i.test(li.textContent));
+      return bad ? 'a list still has "' + norm(bad.textContent) + '"' : null;
+    });
+
+    await check('the_page_never_says_snowflake_scripting', () => {
+      return /Snowflake scripting/i.test(ctx.doc.documentElement.textContent) ? '"Snowflake scripting" is on the page' : null;
+    });
+
+    await check('the_page_never_names_a_tool_that_was_only_researched', () => {
+      return /\bClay\b/.test(ctx.doc.documentElement.textContent) ? 'Clay is named on the page' : null;
+    });
+
+    await check('the_page_never_names_the_sponsor', () => {
+      const text = ctx.doc.documentElement.textContent + ' ' + ctx.doc.documentElement.innerHTML;
+      return /Boston Scientific|\bBSC\b/i.test(text) ? 'the sponsor is named on the page' : null;
+    });
+
+    await check('the_page_never_shows_a_phone_number_or_street_address', () => {
+      const html = ctx.doc.documentElement.innerHTML;
+      const text = ctx.doc.body.textContent;
+      if (/href="tel:/i.test(html)) return 'a tel: link is on the page';
+      if (/\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b/.test(text)) return 'a phone-number pattern is on the page';
+      if (/\b\d{1,5}\s+[A-Z][a-z]+\s+(Street|St\.|Avenue|Ave\.|Road|Rd\.|Drive|Dr\.|Lane|Ln\.|Boulevard|Blvd\.)/.test(text)) return 'a street-address pattern is on the page';
+    });
+
+    await check('the_stylesheet_has_a_reduced_motion_rule_that_stops_animations', () => {
+      for (const sheet of Array.from(ctx.doc.styleSheets)) {
+        let rules; try { rules = Array.from(sheet.cssRules); } catch (e) { continue; }
+        for (const r of rules) {
+          if (r.media && /prefers-reduced-motion:\s*reduce/.test(r.conditionText || r.media.mediaText) &&
+              /animation-duration/.test(r.cssText) && /transition-duration/.test(r.cssText)) return null;
+        }
+      }
+      return 'no prefers-reduced-motion: reduce rule that sets animation-duration and transition-duration';
+    });
+
+    await check('no_read_more_buttons_in_any_popup', async () => {
+      for (const name of ['About', 'Experience', 'Projects']) {
+        await open(ctx, name);
+        const bad = qa(ctx, 'dialog.popup button').find(b => /read more|show less|expand/i.test(b.textContent) || b.hasAttribute('aria-expanded'));
+        await closeByButton(ctx);
+        if (bad) return name + ' pop-up has a "' + norm(bad.textContent) + '" toggle';
+      }
+    });
+
+    await check('an_unknown_hash_like_contact_opens_no_popup', async () => {
+      const c = await openFrame(1280, 800, { hash: '#contact' });
+      return dlg(c) && dlg(c).open ? 'a dialog opened for #contact' : null;
+    });
+  }
+
+  try {
+    for (const [w, h] of [[320, 720], [375, 812], [768, 900], [1280, 800]]) {
+      const ctx = await openFrame(w, h);
+      await heroTests(ctx);
+      await dialogTests(ctx);
+      await stepTests(ctx);
+      await aboutTests(ctx);
+      await experienceTests(ctx);
+      await projectsTests(ctx);
+      await layoutTests(ctx);
+      await deepLinkTests(w, h, '#experience', '02 Experience');
+    }
+    await deepLinkTests(1280, 800, '#about', '01 About');
+    await deepLinkTests(1280, 800, '#work', '03 Projects');
+    await noScriptTests(1280, 800);
+    await noScriptTests(375, 812);
+    await globalTests();
+  } catch (e) {
+    fail('harness', 'error: ' + (e && e.stack || e));
+  }
+
+  stage.textContent = '';
+  record('SUMMARY passed=' + results.passed + ' failed=' + results.failed + ' skipped=' + results.skipped);
+  document.title = 'DONE';
+
+  if (/[?&]post=1\b/.test(location.search)) {
+    try {
+      await fetch('/__results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(results) });
+    } catch (e) { /* the page still shows the results */ }
+  }
+})();
+</script>
+</body>
+</html>

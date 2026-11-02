@@ -1,20 +1,20 @@
 /* ==========================================================================
    RETHEME HERE
    Everything visual is driven by the variables in this one block.
-   Change a handful and the whole site follows.
+   Change a handful and the whole site follows - the Constellation
+   background reads its colors from here too.
    ========================================================================== */
 
 :root {
   /* --- Colors ------------------------------------------------------------ */
   --bg:            #0a0e17;   /* page background (cool near-black)           */
-  --bg-raised:     #131a28;   /* cards, raised surfaces                      */
-  --bg-sunken:     #060911;   /* footer, wells                               */
+  --bg-raised:     #131a28;   /* raised surfaces (Panels, chips)             */
   --ink:           #e9eefb;   /* primary text (cool near-white)              */
   --ink-muted:     #97a5c0;   /* secondary text                              */
   --ink-faint:     #57647f;   /* numbers, hairlines, quiet details           */
-  --accent:        #4d9bff;   /* THE color - buttons, links, highlights      */
+  --accent:        #4d9bff;   /* THE color - buttons, links, background nodes */
   --accent-ink:    #06121f;   /* text placed on top of --accent              */
-  --accent-2:      #6fe3ff;   /* secondary pop - section numbers, hovers     */
+  --accent-2:      #6fe3ff;   /* secondary pop - section numbers, highlights */
   --rule:          #212c42;   /* border / divider color                      */
 
   /* --- Type -------------------------------------------------------------- */
@@ -42,11 +42,29 @@
   --page-max:  74rem;         /* max width of the layout                     */
   --gutter:    clamp(1.25rem, 5vw, 4rem);
 
-  --radius:    14px;
+  --radius:    16px;
   --radius-sm: 8px;
   --border:    1px solid var(--rule);
   --ease:      cubic-bezier(0.2, 0.7, 0.3, 1);
   --speed:     220ms;
+
+  /* --- Panels (frosted glass over the Constellation) --------------------- */
+  --panel-bg:   color-mix(in srgb, var(--bg-raised) 60%, transparent);
+                                        /* raise the % to hide more background */
+  --panel-blur: 6px;                    /* softens the lines behind a Panel */
+  --bar-bg:     color-mix(in srgb, var(--bg) 72%, transparent);
+                                        /* the fixed top bar                */
+  --bar-blur:   10px;
+
+  /* --- Section pop-ups --------------------------------------------------- */
+  --popup-bg:   color-mix(in srgb, var(--bg-raised) 88%, transparent);
+                                        /* the pop-up card; kept solid for reading */
+  --popup-dim:  color-mix(in srgb, var(--bg) 62%, transparent);
+                                        /* the page behind an open pop-up   */
+
+  /* --- Motion ------------------------------------------------------------ */
+  --reveal-distance: 20px;    /* how far below its place a Panel starts      */
+  --depth-drift:     0.1;     /* background moves at this fraction of scroll */
 }
 
 /* ==========================================================================
@@ -55,7 +73,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;  /* anchor jumps land below the fixed top bar   */
+  scrollbar-gutter: stable;  /* no sideways jump when a pop-up locks scrolling */
+}
 
 body {
   margin: 0;
@@ -117,15 +140,42 @@ img { max-width: 100%; display: block; }
 }
 .skip:focus { left: var(--gutter); z-index: 10000; }
 
+/* Read by screen readers, never shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Constellation  -  the animated background, fixed behind everything.
+   script.js draws it; with scripts off the page background shows instead.
+   ========================================================================== */
+
+#constellation {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;      /* decoration only; never takes a click */
+}
+
+main {
+  position: relative;
+  z-index: 1;                /* content sits above the Constellation */
+}
+
 /* ==========================================================================
    Layout primitives
    ========================================================================== */
 
-.topbar,
+.topbar nav,
 .hero,
-.section,
-.footer-inner,
-.colophon {
+.section {
   width: min(100% - var(--gutter) * 2, var(--page-max));
   margin-inline: auto;
 }
@@ -151,21 +201,67 @@ img { max-width: 100%; display: block; }
 }
 
 /* ==========================================================================
-   Top bar
+   Panels  -  every piece of content in a Section sits in one
+   ========================================================================== */
+
+.panel {
+  position: relative;
+  padding: var(--space-m);
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.panel-label {
+  font-family: var(--font-body);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: var(--space-s);
+}
+
+/* ==========================================================================
+   Reveal  -  Panels and Section headings fade in and rise into place as
+   they scroll into view. script.js sets --reveal from 0 to 1 by scroll
+   position, so it reverses when you scroll back. Without the script, or
+   with reduced motion, --reveal is never set and everything shows at 1.
+   ========================================================================== */
+
+.panel,
+.section-title {
+  opacity: var(--reveal, 1);
+  /* --lift is an extra offset on top of the Reveal (the card hover). */
+  transform: translateY(calc((1 - var(--reveal, 1)) * var(--reveal-distance) + var(--lift, 0px)));
+}
+
+/* A Panel holding keyboard focus is always fully revealed, so a link
+   tabbed to is never faded or displaced. */
+.panel:focus-within { --reveal: 1 !important; }
+
+/* ==========================================================================
+   Top bar  -  fixed, with the Active Section highlighted and a progress line
    ========================================================================== */
 
 .topbar {
-  display: flex;
-  flex-wrap: wrap;           /* nav wraps rather than clipping when cramped  */
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-s);
-  padding-block: var(--space-s);
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: blur(var(--bar-blur));
+  backdrop-filter: blur(var(--bar-blur));
+  border-bottom: var(--border);
 }
 
 .topbar nav {
   display: flex;
+  flex-wrap: wrap;           /* nav wraps rather than clipping when cramped  */
+  justify-content: flex-end;
   gap: clamp(var(--space-xs), 3vw, var(--space-m));
+  padding-block: var(--space-s);
   font-size: var(--step--1);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -179,6 +275,19 @@ img { max-width: 100%; display: block; }
   transition: color var(--speed) var(--ease), border-color var(--speed) var(--ease);
 }
 .topbar nav a:hover { color: var(--ink); border-bottom-color: var(--accent); }
+.topbar nav a[aria-current] { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+
+/* How far down the page you are; script.js sets --progress from 0 to 1. */
+.scroll-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transform-origin: 0 50%;
+  transform: scaleX(var(--progress, 0));
+}
 
 /* ==========================================================================
    Hero
@@ -186,7 +295,7 @@ img { max-width: 100%; display: block; }
 
 .hero {
   position: relative;
-  padding-block: clamp(var(--space-l), 12vh, var(--space-2xl)) var(--space-2xl);
+  padding-block: clamp(7rem, 18vh, 12rem) var(--space-2xl);
 }
 
 /* Soft accent glow sitting behind the name. */
@@ -203,6 +312,7 @@ img { max-width: 100%; display: block; }
               color-mix(in oklab, var(--accent) 22%, transparent),
               transparent 62%);
   filter: blur(30px);
+  pointer-events: none;      /* decoration only; never takes a click */
 }
 
 .hero-name {
@@ -228,7 +338,27 @@ img { max-width: 100%; display: block; }
   color: var(--ink);
 }
 
-.hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+/* Headline facts under the intro. */
+.chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-m);
+  padding: 0;
+}
+.chips li {
+  font-size: var(--step--1);
+  padding: 0.4em 1em;
+  border: var(--border);
+  border-radius: 999px;
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
+}
+
+/* The Section buttons: each opens its Section as a pop-up. */
+.hero-sections { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 
 .btn {
   display: inline-block;
@@ -245,66 +375,101 @@ img { max-width: 100%; display: block; }
 }
 .btn:hover { transform: translateY(-2px); border-color: var(--ink); }
 
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 700;
+.hero-sections .btn {
+  background: var(--panel-bg);
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  backdrop-filter: blur(var(--panel-blur));
 }
-.btn-primary:hover {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-  color: var(--ink);
+.hero-sections .btn:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+.hero-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-m);
+  margin: var(--space-m) 0 0;
+  font-size: var(--step--1);
 }
+.hero-contact a {
+  text-decoration: none;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+  transition: color var(--speed) var(--ease), border-color var(--speed) var(--ease);
+}
+.hero-contact a:hover { color: var(--accent); border-bottom-color: var(--accent); }
 
 /* ==========================================================================
-   About
+   About  -  bio Panel beside a column of the facts and Toolkit Panels
    ========================================================================== */
 
 .about-grid {
   display: grid;
-  gap: var(--space-l);
+  gap: var(--space-s);
   grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   align-items: start;
 }
+
+.about-side { display: grid; gap: var(--space-s); }
 
 .lead {
   font-family: var(--font-display);
   font-variation-settings: var(--wonk);
   font-size: var(--step-1);
   line-height: 1.4;
-  color: var(--ink);
 }
-
-.about-body p + p { color: var(--ink-muted); }
 
 .facts { margin: 0; display: grid; gap: 0; }
 .facts > div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-s);
+  display: grid;
+  gap: var(--space-2xs);
   padding-block: var(--space-xs);
   border-bottom: var(--border);
 }
-.facts > div:first-child { border-top: var(--border); }
+.facts > div:first-child { padding-top: 0; }
+.facts > div:last-child { padding-bottom: 0; border-bottom: 0; }
 .facts dt {
   font-size: var(--step--1);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.facts dd { margin: 0; text-align: right; }
+.facts dd { margin: 0; }
+
+.toolkit-group + .toolkit-group { margin-top: var(--space-s); }
+.toolkit-name {
+  margin-bottom: var(--space-2xs);
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
 
 /* ==========================================================================
-   Experience  -  each <li class="role"> is a dates column + a details column
+   Experience  -  the Timeline: a line down the left, one Panel per role.
+   script.js sets --drawn from 0 to 1 so the line draws in as you scroll.
    ========================================================================== */
+
+.timeline {
+  position: relative;
+  padding-left: var(--space-l);
+}
+
+.timeline-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--space-s) - 1px);
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--accent), var(--accent-2));
+  transform-origin: 50% 0;
+  transform: scaleY(var(--drawn, 1));
+}
 
 .roles {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: var(--space-l);
+  gap: var(--space-m);
 }
 
 .role {
@@ -312,8 +477,19 @@ img { max-width: 100%; display: block; }
   grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
   gap: var(--space-m);
   align-items: start;
-  padding-top: var(--space-m);
-  border-top: var(--border);
+}
+
+/* The marker on the Timeline beside each role. */
+.role::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-m) + 0.3rem);
+  left: calc(var(--space-s) - var(--space-l) - 7px);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--accent-2);
 }
 
 .role-when { display: grid; gap: var(--space-2xs); }
@@ -347,18 +523,17 @@ img { max-width: 100%; display: block; }
 .role-org {
   margin: calc(var(--space-xs) * -1) 0 0;
   font-size: var(--step-0);
-  color: var(--ink);
+  color: var(--ink-muted);
 }
 
 .role-text {
   margin: 0;
-  color: var(--ink-muted);
   font-size: var(--step--1);
   line-height: 1.65;
 }
 
 /* ==========================================================================
-   Projects grid  -  cards are self-contained; add as many as you like
+   Projects grid  -  one Panel per project; add as many as you like
    ========================================================================== */
 
 .grid {
@@ -368,16 +543,11 @@ img { max-width: 100%; display: block; }
 }
 
 .card {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  padding: var(--space-m) var(--space-s) var(--space-s);
-  background: var(--bg-raised);
-  border: var(--border);
-  border-radius: var(--radius);
   overflow: hidden;
-  transition: transform var(--speed) var(--ease), border-color var(--speed) var(--ease);
+  transition: border-color var(--speed) var(--ease);
 }
 
 /* Accent rule that wipes across the top edge on hover. */
@@ -391,9 +561,31 @@ img { max-width: 100%; display: block; }
   transform-origin: left;
   transition: transform var(--speed) var(--ease);
 }
-.card:hover { transform: translateY(-4px); border-color: var(--ink-faint); }
+/* The hover lift adds to the Reveal offset rather than replacing it. */
+.card:hover {
+  --lift: -4px;
+  border-color: var(--ink-faint);
+}
 .card:hover::before,
 .card:focus-within::before { transform: scaleX(1); }
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2xs);
+}
+
+/* Small icon for the project's domain - swap the <svg> inside freely. */
+.card-icon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent-2);
+}
 
 .card-num {
   font-size: var(--step--1);
@@ -410,7 +602,7 @@ img { max-width: 100%; display: block; }
 
 /* Small dateline under a project title. Delete the <p> to drop it. */
 .card-meta {
-  margin: calc(var(--space-xs) * -1) 0 0;
+  margin: 0;
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -418,7 +610,6 @@ img { max-width: 100%; display: block; }
 }
 
 .card-text {
-  color: var(--ink-muted);
   font-size: var(--step--1);
   line-height: 1.6;
   margin: 0;
@@ -460,86 +651,305 @@ img { max-width: 100%; display: block; }
 .card-links a:hover { border-bottom-color: currentColor; color: var(--accent-2); }
 
 /* ==========================================================================
-   Footer
+   Project text and visuals  -  a bold overview, labelled paragraphs, and one
+   figure (drawn from the project's own numbers) before the result.
    ========================================================================== */
 
-.footer {
-  background: var(--bg-sunken);
-  border-top: var(--border);
-  padding-block: var(--space-xl) var(--space-m);
-  margin-top: var(--space-l);
+.para-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--accent-2);
 }
 
-.footer-inner {
+.viz {
+  margin: var(--space-2xs) 0 var(--space-s);
+  padding: var(--space-xs);
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.viz figcaption {
+  margin-top: var(--space-xs);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.viz > table + table { margin-top: var(--space-s); }
+
+/* Flow diagrams (inline SVG). Highlighted boxes are the author's own work;
+   dashed ones were built by teammates. */
+.viz svg { display: block; width: 100%; max-width: 26rem; height: auto; margin-inline: auto; }
+.viz .v-box   { fill: color-mix(in srgb, var(--bg-raised) 90%, transparent); stroke: var(--rule); stroke-width: 1; }
+.viz .v-group { fill: none; stroke: var(--ink-faint); stroke-dasharray: none; }
+.viz .v-mine  { fill: color-mix(in oklab, var(--accent) 22%, transparent); stroke: var(--accent); }
+.viz .v-dim   { fill: none; stroke: var(--ink-faint); stroke-dasharray: 4 3; }
+.viz .v-t     { fill: var(--ink); font: 600 12.5px/1 var(--font-body); }
+.viz .v-s     { fill: var(--ink-muted); font: 400 11.5px/1 var(--font-body); }
+.viz .v-dim .v-t { fill: var(--ink-muted); }
+.viz .v-arrow { stroke: var(--ink-faint); stroke-width: 1.4; fill: none; }
+.viz .v-head  { fill: var(--ink-faint); }
+
+/* Tables used as charts: real tables, so every number is readable by a screen reader. */
+.viz table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.viz caption {
+  margin-bottom: 0.35rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.viz th { font-weight: 400; text-align: left; color: var(--ink-muted); }
+
+.bars th { width: 38%; padding: 0.15rem 0.5rem 0.15rem 0; line-height: 1.25; }
+.bars td { padding: 0.15rem 0; }
+.bar-cell { display: flex; align-items: center; gap: 0.4rem; }
+.bar {
+  flex: none;
+  width: calc(var(--w) * 0.72);
+  height: 0.6rem;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.bar.base { background: var(--ink-faint); }
+.bar.best { background: var(--accent-2); }
+.bar-val { font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* The prompting-strategy chart: each row names a strategy, says what it does, and shows its bar. */
+.strategies th { width: 54%; padding: 0.4rem 0.6rem 0.4rem 0; vertical-align: top; }
+.strategies td { vertical-align: top; padding: 0.4rem 0; }
+.strategies tr + tr > * { border-top: 1px solid var(--rule); }
+.strategies .bar-cell { min-height: 1.4rem; }
+.bar-name { display: block; font-weight: 600; color: var(--ink); }
+.bar-desc { display: block; margin-top: 0.1rem; font-size: 0.74rem; line-height: 1.4; color: var(--ink-muted); }
+/* ==========================================================================
+   Section pop-ups  -  script.js builds one <dialog> from the Sections'
+   own content and opens it from the Hero's Section buttons. Once it has,
+   the page is just the Hero (html.popups); without the script the full
+   long page shows instead. The dialog covers the window and dims the
+   Hero; the card inside holds the content.
+   ========================================================================== */
+
+html.popups .topbar,
+html.popups .section { display: none; }
+
+html.popups .hero {
+  min-height: 100vh;
+  min-height: 100svh;        /* the Hero is the whole page */
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-l);
-  justify-content: space-between;
-  align-items: flex-end;
-  padding-bottom: var(--space-l);
+  flex-direction: column;
+  justify-content: center;
+  padding-block: var(--space-l);
+}
+
+html.popup-open { overflow: hidden; }   /* the page stays put behind it */
+
+.popup {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: clamp(var(--space-xs), 7vh, 5rem) var(--gutter);
+  border: 0;
+  color: var(--ink);
+  color-scheme: dark;        /* dark scrollbars inside the pop-up */
+  background: var(--popup-dim);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.popup[open] {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;   /* top-aligned, so the bar stays put between Sections */
+  animation: popup-fade var(--speed) var(--ease);
+}
+.popup::backdrop { background: transparent; }
+.popup [hidden] { display: none !important; }  /* beats the display rules below */
+
+.popup-card {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 46rem);
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--popup-bg);
+  -webkit-backdrop-filter: blur(var(--bar-blur));
+  backdrop-filter: blur(var(--bar-blur));
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.6);
+  animation: popup-rise 320ms var(--ease);
+}
+
+.popup-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-s) var(--space-m);
   border-bottom: var(--border);
 }
 
-.footer-cta {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-s);
-}
-
-.footer-line {
-  font-family: var(--font-display);
-  font-variation-settings: var(--wonk);
+.popup-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;           /* on a narrow bar the number sits above the name */
+  align-items: baseline;
+  gap: 0 var(--space-xs);
   font-size: var(--step-2);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-  max-width: 26ch;           /* measure for the sentence only, not the email */
+  outline: none;             /* focused by script on open, not by the visitor */
+}
+
+.popup-step,
+.popup-close {
+  flex: none;                /* the heading gives way, never the buttons */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  min-height: 2.75rem;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease), color var(--speed) var(--ease);
+}
+.popup-step { padding: 0 1em; letter-spacing: 0.06em; text-transform: uppercase; }
+.popup-close { width: 2.75rem; }
+.popup-step:hover,
+.popup-close:hover { border-color: var(--accent-2); color: var(--accent-2); }
+
+.popup-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;  /* scrolling never leaks to the page behind */
+  padding: var(--space-m);
+}
+
+.popup-page { display: grid; gap: var(--space-m); }
+.popup-page:not([hidden]) { animation: popup-swap 260ms var(--ease); }
+
+.popup-label {
+  font-family: var(--font-body);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: var(--space-xs);
+}
+
+.popup-bio .lead {                 /* the bio reads as one even block of text */
+  font-family: inherit;
+  font-variation-settings: normal;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* About: the facts as small tiles. */
+.popup-facts {
+  list-style: none;
   margin: 0;
-}
-
-.footer-mail {
-  font-size: var(--step-1);
-  overflow-wrap: break-word; /* only breaks if it genuinely cannot fit */
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 3px solid color-mix(in oklab, var(--accent) 35%, transparent);
-  transition: border-color var(--speed) var(--ease);
-}
-.footer-mail:hover { border-bottom-color: var(--accent); }
-
-.footer-links {
+  padding: 0;
   display: grid;
   gap: var(--space-2xs);
-  font-size: var(--step--1);
-  letter-spacing: 0.08em;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+.popup-fact {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  padding: var(--space-xs);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.popup-fact-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-align: right;
-}
-.footer-links a {
-  text-decoration: none;
-  color: var(--ink-muted);
-  transition: color var(--speed) var(--ease);
-}
-.footer-links a:hover { color: var(--accent); }
-
-.colophon {
-  padding-top: var(--space-s);
-  font-size: var(--step--1);
   color: var(--ink-faint);
-  max-width: none;
 }
+.popup-fact-value { font-size: var(--step--1); line-height: 1.45; }
+.popup-fact-wide { grid-column: 1 / -1; }
+
+/* Experience and Projects: one tab per role or project. */
+/* Equal columns: side by side on computers, stacked on phones. */
+.popup-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-2xs);
+}
+.popup-tab {
+  display: grid;
+  align-content: space-between;  /* dates line up at the bottom of every tab */
+  gap: var(--space-2xs);
+  text-align: left;
+  padding: 0.6em 1.1em;
+  font: inherit;
+  line-height: 1.3;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease), background var(--speed) var(--ease);
+}
+.popup-tab-name { font-weight: 500; }
+.popup-tab-when { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+.popup-tab:hover { border-color: var(--ink-faint); }
+.popup-tab[aria-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+.popup-tab[aria-selected="true"] .popup-tab-when { color: var(--accent-2); }
+
+.popup-tabpanel { display: grid; gap: var(--space-xs); padding-top: var(--space-s); }
+.popup-tabpanel-title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--wonk);
+  font-size: var(--step-1);
+}
+.popup-tabpanel .role-text,
+.popup-tabpanel .card-text { font-size: var(--step-0); }
+.popup-tabpanel .card-links { margin: 0; }
+
+@keyframes popup-fade { from { opacity: 0; } }
+@keyframes popup-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+@keyframes popup-swap { from { opacity: 0; transform: translateX(12px); } }
 
 /* ==========================================================================
    Responsive + motion
    ========================================================================== */
 
 @media (max-width: 48rem) {
-  .about-grid { grid-template-columns: 1fr; gap: var(--space-m); }
-  .footer-inner { align-items: flex-start; }
-  .footer-links { text-align: left; }
+  .about-grid { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: var(--space-s); }
+  .timeline { padding-left: var(--space-m); }
+  .timeline-line { left: calc(var(--space-xs) - 1px); }
+  .role::before {
+    top: calc(var(--space-s) + 0.3rem);
+    left: calc(var(--space-xs) - var(--space-m) - 7px);
+  }
+
+  /* Pop-ups become a sheet that fills the screen, less a small margin. */
+  .popup { padding: var(--space-xs); }
+  .popup-card { width: 100%; height: 100%; }
+  .popup-bar { padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-s); }
+  .popup-body { padding: var(--space-s); }
 
   /* Dates stack above the role instead of sitting beside it. */
-  .role { grid-template-columns: 1fr; gap: var(--space-s); }
+  .role { grid-template-columns: minmax(0, 1fr); gap: var(--space-s); }
   .role-when {
     grid-auto-flow: column;
     justify-content: start;
@@ -548,16 +958,47 @@ img { max-width: 100%; display: block; }
   }
 }
 
-@media (max-width: 26rem) {
-  .topbar { gap: var(--space-xs); }
-  .topbar nav {
-    gap: var(--space-xs);
-    letter-spacing: 0.04em;
-    font-size: 0.75rem;
-    flex-wrap: wrap;
+/* On phones the arrows drop their Section names (they keep them as labels), and
+   figures run edge to edge so diagram text stays readable. */
+@media (max-width: 30rem) {
+  .viz {
+    margin-inline: calc(var(--space-s) * -1);
+    padding-inline: 0.375rem;
+    border-inline-width: 0;
+    border-radius: 0;
+  }
+  .popup-bar { gap: var(--space-2xs); }
+  .popup-title { font-size: var(--step-1); }
+  .popup-step { width: 2.75rem; padding: 0; }
+  .popup-step-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
+@media (max-width: 26rem) {
+  .topbar nav {
+    gap: var(--space-xs);
+    padding-block: var(--space-xs);
+    letter-spacing: 0.04em;
+    font-size: 0.75rem;
+  }
+
+  /* Keep the Hero's buttons above the fold on small phones. */
+  .hero { padding-top: clamp(5.5rem, 14vh, 12rem); }
+  html.popups .hero { padding-block: var(--space-xs); }   /* no top bar to clear */
+  .hero-contact { margin-top: var(--space-s); }
+  .hero-name,
+  .hero-intro,
+  .chips { margin-bottom: var(--space-s); }
+}
+
+/* Reduced motion: script.js leaves the background still and skips the
+   Reveal and the Timeline draw; this covers the CSS side. */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

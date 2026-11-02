@@ -13,24 +13,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="styles.css">
+<script src="script.js" defer></script>
 </head>
 <body>
 
 <a class="skip" href="#main">Skip to content</a>
+
+<!-- The animated background. Drawn by script.js; decoration only. -->
+<canvas id="constellation" aria-hidden="true"></canvas>
 
 <header class="topbar">
   <nav aria-label="Sections">
     <a href="#about">About</a>
     <a href="#experience">Experience</a>
     <a href="#work">Projects</a>
-    <a href="#contact">Contact</a>
   </nav>
+  <div class="scroll-progress" aria-hidden="true"></div>
 </header>
 
 <main id="main">
 
   <!-- ==========================================================
-       EDIT: HERO — your name and your one-line intro
+       EDIT: HERO — your name, your one-line intro, the chips, the
+       Section buttons, and your contact links
        ========================================================== -->
   <section class="hero" id="top">
     <h1 class="hero-name">
@@ -41,127 +46,291 @@
       production — <em>applied LLM tooling</em>, predictive models, and the
       data infrastructure that sustains them.
     </p>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="#work">View projects</a>
-      <a class="btn" href="#contact">Get in touch</a>
-    </div>
+    <ul class="chips">
+      <li>B.S./M.S. Data Science, WPI&nbsp;&rsquo;26</li>
+      <li>Open to work</li>
+      <li>Boston, MA</li>
+    </ul>
+    <!-- Each button opens its Section as a pop-up, built from that
+         Section's own content below (without JavaScript it jumps there). -->
+    <nav class="hero-sections" aria-label="Explore">
+      <a class="btn" href="#about">About</a>
+      <a class="btn" href="#experience">Experience</a>
+      <a class="btn" href="#work">Projects</a>
+    </nav>
+    <!-- EDIT: contact links -->
+    <p class="hero-contact">
+      <a href="mailto:k30richards@gmail.com">k30richards@gmail.com</a>
+      <a href="https://www.linkedin.com/in/kdrichards30">LinkedIn</a>
+      <a href="https://github.com/k30richards">GitHub</a>
+    </p>
   </section>
 
   <!-- ==========================================================
-       EDIT: ABOUT — a short paragraph or two, plus a few facts
+       EDIT: ABOUT — bio, facts, and Toolkit, each in its own Panel
        ========================================================== -->
   <section class="about section" id="about">
     <h2 class="section-title"><span class="section-num">01</span> About</h2>
     <div class="about-grid">
-      <div class="about-body">
+      <div class="panel about-body">
         <p class="lead">
           I completed a combined B.S. and M.S. in Data Science at Worcester
           Polytechnic Institute in May 2026. Between an internship,
-          undergraduate research, and graduate project work, my attention has
-          kept returning to the same question: what it actually takes to move
-          a model out of a notebook and into something an organization can
-          depend on.
+          undergraduate research, and graduate project work, my attention
+          keeps returning to the same question: what does it take to move a
+          model out of a notebook and into something an organization can
+          depend on?
         </p>
         <p>
-          Python anchors the technical side — PyTorch, TensorFlow, and
-          Scikit-learn for model development and deployment, with Pandas and
-          NumPy handling preparation upstream. I also work in SQL, across
-          cloud platforms such as Snowflake and Azure, and in Tableau for
-          reporting, and I increasingly rely on LLM-based tooling for
-          automation, prompt design, and extracting structure from
-          unstructured sources.
-        </p>
-        <p>
-          That toolkit has been pointed at fairly different problems:
+          My skills have been pointed at fairly different problems:
           enterprise data engineering and workflow automation, applied deep
           learning research, forecasting in noisy domains like equity markets
           and medical imaging, and deployment under the tight constraints of
           embedded hardware.
         </p>
         <p>
-          Throughout, I benchmark competing options — architectures, prompting
-          strategies, optimization methods — before committing to one, and I
-          treat the system surrounding a model as no less important than the
-          model itself. The work I find most compelling sits in the gap
-          between a prototype that runs and a system that stays reliable.
+          Throughout, I benchmark competing options before committing to one,
+          and I treat the system surrounding a model as no less important than
+          the model itself.
         </p>
       </div>
-      <!-- EDIT: swap these for your own facts — add or remove <div>s freely -->
-      <dl class="facts">
-        <div><dt>Based in</dt><dd>Boston, MA</dd></div>
-        <div><dt>Education</dt><dd>B.S./M.S. Data Science, WPI&nbsp;&rsquo;26</dd></div>
-        <div><dt>Now</dt><dd>AI Intern, Locust Walk</dd></div>
-        <div><dt>Seeking</dt><dd>Machine learning, AI/LLM applications &amp; data engineering roles — open across industries</dd></div>
-      </dl>
+      <div class="about-side">
+        <!-- EDIT: swap these for your own facts — add or remove <div>s freely -->
+        <div class="panel">
+          <dl class="facts">
+            <div><dt>Based in</dt><dd>Boston, MA</dd></div>
+            <div><dt>Education</dt><dd>B.S./M.S. Data Science, WPI&nbsp;&rsquo;26</dd></div>
+            <div><dt>Status</dt><dd>Available now. Open to full- and part-time roles.</dd></div>
+            <div><dt>Seeking</dt><dd>Data science, ML, and applied AI roles in Greater Boston. Also open to consulting, technical sales, and part-time work where that background applies.</dd></div>
+          </dl>
+        </div>
+        <!-- EDIT: Toolkit — one <div class="toolkit-group"> per category; skills come from the top of each experience and project -->
+        <div class="panel toolkit">
+          <h3 class="panel-label">Toolkit</h3>
+          <div class="toolkit-group">
+            <p class="toolkit-name">Modeling</p>
+            <ul class="tags"><li>PyTorch</li><li>TensorFlow</li><li>Scikit-learn</li><li>Transformers</li><li>Multimodal data analysis</li></ul>
+          </div>
+          <div class="toolkit-group">
+            <p class="toolkit-name">Data</p>
+            <ul class="tags"><li>Python</li><li>Pandas</li><li>NumPy</li><li>SQL</li><li>ETL</li></ul>
+          </div>
+          <div class="toolkit-group">
+            <p class="toolkit-name">Cloud &amp; reporting</p>
+            <ul class="tags"><li>Snowflake</li><li>Azure</li><li>Tableau</li></ul>
+          </div>
+          <div class="toolkit-group">
+            <p class="toolkit-name">LLMs</p>
+            <ul class="tags"><li>Automation</li><li>Prompt design</li><li>Extraction from unstructured sources</li></ul>
+          </div>
+          <div class="toolkit-group">
+            <p class="toolkit-name">Applied &amp; edge ML</p>
+            <ul class="tags"><li>Applied AI research</li><li>Medical image analysis</li><li>Model optimization</li><li>Embedded ML</li></ul>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <!-- ==========================================================
-       EDIT: EXPERIENCE
-       To add a role: copy one entire <li class="role"> … </li> block
-       and change the dates, title, org, description, and tags.
+       EDIT: EXPERIENCE — the Timeline
+       To add a role: copy one entire <li class="role panel"> … </li>
+       block and change the dates, title, org, description, and tags.
+       Newest first; the line and its markers follow on their own.
        ========================================================== -->
   <section class="section" id="experience">
     <h2 class="section-title"><span class="section-num">02</span> Experience</h2>
 
-    <ol class="roles">
+    <div class="timeline">
+      <div class="timeline-line" aria-hidden="true"></div>
+      <ol class="roles">
 
-      <!-- ---- role ---- -->
-      <li class="role">
-        <div class="role-when">
-          <p class="role-dates">Jun 2026 &ndash; Present</p>
-          <p class="role-place">Boston, MA</p>
-        </div>
-        <div class="role-what">
-          <h3 class="role-title">AI Intern</h3>
-          <p class="role-org">Locust Walk</p>
-          <p class="role-text">
-            Designed and built automation tools that streamline the firm's
-            research and data workflows, including a pipeline that pairs web
-            scraping with large language models to replace a fully manual CRM
-            contact research process. Also evaluated emerging AI and CRM
-            platforms to help guide the firm's broader technology strategy.
-          </p>
-          <ul class="tags">
-            <li>Python</li>
-            <li>LLMs</li>
-            <li>API Integration</li>
-            <li>Workflow Automation</li>
-          </ul>
-        </div>
-      </li>
+        <!-- ---- role ---- -->
+        <li class="role panel">
+          <div class="role-when">
+            <p class="role-dates">Jun 2026 &ndash; Aug 2026</p>
+            <p class="role-place">Boston, MA</p>
+          </div>
+          <div class="role-what">
+            <h3 class="role-title">AI Intern</h3>
+            <p class="role-org">Locust Walk</p>
+            <div class="role-text">
+              <p class="overview"><strong>
+                As an AI intern at Locust Walk, a biopharma advisory firm in
+                Boston, I built an automated pipeline that finds executives
+                and board members at target companies and prepares them to
+                load into the firm&rsquo;s CRM.
+              </strong></p>
+              <p>
+                <span class="para-label">The problem</span>
+                The CRM&rsquo;s contact data was incomplete and going stale,
+                and keeping it current meant researching one person at a time
+                by hand. The business development team&rsquo;s outreach
+                depended on that data being right, and the manual process did
+                not scale.
+              </p>
+              <p>
+                <span class="para-label">The approach</span>
+                I explored a range of CRM, enrichment and AI tools, compared
+                their costs and functionality, and picked the best fit for the
+                situation. That meant building the collection step myself in
+                Python and using Apollo, a sales intelligence platform, for
+                enrichment.
+              </p>
+              <p>
+                <span class="para-label">What I built</span>
+                For each company, the pipeline finds its leadership and board
+                pages, pulls the text with open source browser automation
+                tools and RAG frameworks, and has the Claude API extract names
+                and titles. A role whitelist keeps only the positions the
+                business development team tracks, and Apollo adds emails and
+                LinkedIn profiles. ETL scripts then clean the results, remove
+                duplicates, map locations to the CRM&rsquo;s regions and
+                reshape everything to its import format, so contacts merge in
+                without creating duplicates.
+              </p>
+              <figure class="viz">
+                <svg viewBox="0 0 320 348" role="img" aria-label="Flow diagram: company list, find leadership and board pages, pull the page text, extract names and titles with the Claude API, keep the tracked roles, add emails and LinkedIn profiles with Apollo, ETL scripts, then the CRM.">
+                                  <rect x="20" y="2" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="20.0" text-anchor="middle"><tspan class="v-t">Company list</tspan><tspan class="v-s"> &middot; the firms to research</tspan></text>
+                                  <line x1="160" y1="30" x2="160.0" y2="38.0" class="v-arrow"/>
+                                  <path d="M160.0 44.0 L156.5 38.0 L163.5 38.0 Z" class="v-head"/>
+                                  <rect x="20" y="44" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="62.0" text-anchor="middle"><tspan class="v-t">Find leadership and board pages</tspan></text>
+                                  <line x1="160" y1="72" x2="160.0" y2="80.0" class="v-arrow"/>
+                                  <path d="M160.0 86.0 L156.5 80.0 L163.5 80.0 Z" class="v-head"/>
+                                  <rect x="20" y="86" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="104.0" text-anchor="middle"><tspan class="v-t">Pull the page text</tspan><tspan class="v-s"> &middot; Jina, Playwright</tspan></text>
+                                  <line x1="160" y1="114" x2="160.0" y2="122.0" class="v-arrow"/>
+                                  <path d="M160.0 128.0 L156.5 122.0 L163.5 122.0 Z" class="v-head"/>
+                                  <rect x="20" y="128" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="146.0" text-anchor="middle"><tspan class="v-t">Extract names and titles</tspan><tspan class="v-s"> &middot; Claude API</tspan></text>
+                                  <line x1="160" y1="156" x2="160.0" y2="164.0" class="v-arrow"/>
+                                  <path d="M160.0 170.0 L156.5 164.0 L163.5 164.0 Z" class="v-head"/>
+                                  <rect x="20" y="170" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="188.0" text-anchor="middle"><tspan class="v-t">Keep tracked roles</tspan><tspan class="v-s"> &middot; title whitelist</tspan></text>
+                                  <line x1="160" y1="198" x2="160.0" y2="206.0" class="v-arrow"/>
+                                  <path d="M160.0 212.0 L156.5 206.0 L163.5 206.0 Z" class="v-head"/>
+                                  <rect x="20" y="212" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="230.0" text-anchor="middle"><tspan class="v-t">Add emails and LinkedIn</tspan><tspan class="v-s"> &middot; Apollo</tspan></text>
+                                  <line x1="160" y1="240" x2="160.0" y2="248.0" class="v-arrow"/>
+                                  <path d="M160.0 254.0 L156.5 248.0 L163.5 248.0 Z" class="v-head"/>
+                                  <rect x="20" y="254" width="280" height="50" rx="6" class="v-box"/>
+                                  <text x="160.0" y="267.5" class="v-t" text-anchor="middle">ETL scripts</text>
+                                  <text x="160.0" y="282.5" class="v-s" text-anchor="middle">clean &middot; remove duplicates &middot; map regions</text>
+                                  <text x="160.0" y="297.5" class="v-s" text-anchor="middle">reshape to the CRM&rsquo;s import format</text>
+                                  <line x1="160" y1="304" x2="160.0" y2="312.0" class="v-arrow"/>
+                                  <path d="M160.0 318.0 L156.5 312.0 L163.5 312.0 Z" class="v-head"/>
+                                  <rect x="20" y="318" width="280" height="28" rx="6" class="v-box"/>
+                                  <text x="160.0" y="336.0" text-anchor="middle"><tspan class="v-t">CRM</tspan><tspan class="v-s"> &middot; merges in, no duplicates</tspan></text>
+                                </svg>
+                <figcaption>How the pipeline turns a company list into CRM-ready contacts.</figcaption>
+              </figure>
+              <p>
+                <span class="para-label">The result</span>
+                In the time left after the build, I ran the pipeline on a
+                first batch of 211 firms. It found 2,042 contacts, an
+                estimated 72% of them new to the CRM, and roughly 70% of those
+                new contacts hold board seats, the group the CRM covered
+                worst. The team uses it today, and the same pipeline can run
+                the remaining firms. The firm projects it will save hundreds
+                of working hours a year.
+              </p>
+            </div>
+            <ul class="tags">
+              <li>Python</li>
+              <li>LLMs &amp; AI Tooling</li>
+              <li>ETL</li>
+              <li>API Integration</li>
+              <li>Workflow Automation</li>
+              <li>CRM Systems</li>
+              <li>Technology Evaluation</li>
+            </ul>
+          </div>
+        </li>
 
-      <!-- ---- role ---- -->
-      <li class="role">
-        <div class="role-when">
-          <p class="role-dates">May 2024 &ndash; Aug 2024</p>
-          <p class="role-place">Worcester, MA</p>
-        </div>
-        <div class="role-what">
-          <h3 class="role-title">Research Associate</h3>
-          <p class="role-org">Worcester Polytechnic Institute</p>
-          <p class="role-text">
-            Evaluated a range of large language model prompting strategies for
-            classifying medical images, benchmarking each against standard
-            performance metrics to identify the most reliable approach.
-            Presented the results at WPI's NSF REU research symposium.
-          </p>
-          <ul class="tags">
-            <li>Prompt Engineering</li>
-            <li>Python</li>
-            <li>Applied ML Research</li>
-          </ul>
-        </div>
-      </li>
+        <!-- ---- role ---- -->
+        <li class="role panel">
+          <div class="role-when">
+            <p class="role-dates">May 2024 &ndash; Aug 2024</p>
+            <p class="role-place">Worcester, MA</p>
+          </div>
+          <div class="role-what">
+            <h3 class="role-title">Research Associate</h3>
+            <p class="role-org">Worcester Polytechnic Institute</p>
+            <div class="role-text">
+              <p class="overview"><strong>
+                As a research associate in WPI&rsquo;s NSF REU program, I
+                tested six prompting strategies for getting ChatGPT to
+                identify the stage of a pressure wound from a photo, to find
+                out which is the most accurate and consistent.
+              </strong></p>
+              <p>
+                <span class="para-label">The problem</span>
+                Pressure injuries are staged by visual inspection, which is
+                subjective, and wounds affect over 8 million people. The
+                question was whether a general-purpose model like ChatGPT
+                could stage them reliably, and how much the way it is prompted
+                changes the answer.
+              </p>
+              <p>
+                <span class="para-label">The approach</span>
+                I worked from the PIID dataset of 1,091 images across four
+                severity stages and drew an 80-image sample, 20 per stage. I
+                designed six prompts: Zero-Shot, Few-Shot, Chain of Thought,
+                Tree of Thought, CO-STAR and TIDD-EC, and ran each in ChatGPT.
+              </p>
+              <p>
+                <span class="para-label">What I built</span>
+                I wrote a Python script that scored every strategy on
+                accuracy, precision, recall and F1 and produced confusion
+                matrices. To test consistency, I chose two images per stage,
+                one that clearly matched its stage and one an observer could
+                easily mislabel, and ran every prompt on each image ten times.
+              </p>
+              <figure class="viz">
+                                <table class="bars strategies">
+                                  <caption>Accuracy on the 80-image sample (%)</caption>
+                                  <tbody>
+                                    <tr><th scope="row"><span class="bar-name">Chain of Thought</span><span class="bar-desc">Asks the model to reason step by step before it gives a stage.</span></th><td><div class="bar-cell"><span class="bar best" style="--w:72.5%"></span><span class="bar-val">72.5</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">CO-STAR</span><span class="bar-desc">A prompt template covering context, objective, style, tone, audience and response.</span></th><td><div class="bar-cell"><span class="bar" style="--w:70.0%"></span><span class="bar-val">70.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Zero-Shot</span><span class="bar-desc">Asks the model to stage the wound with no examples, relying only on what it already knows.</span></th><td><div class="bar-cell"><span class="bar" style="--w:70.0%"></span><span class="bar-val">70.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Tree of Thought</span><span class="bar-desc">Has the model weigh several viewpoints, such as different medical professionals, before deciding.</span></th><td><div class="bar-cell"><span class="bar" style="--w:66.2%"></span><span class="bar-val">66.2</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">TIDD-EC</span><span class="bar-desc">A prompt template covering task, instructions, do&rsquo;s, don&rsquo;ts, examples and content.</span></th><td><div class="bar-cell"><span class="bar" style="--w:60.0%"></span><span class="bar-val">60.0</span></div></td></tr>
+                                    <tr><th scope="row"><span class="bar-name">Few-Shot</span><span class="bar-desc">Shows the model a few worked examples before asking it to stage the wound.</span></th><td><div class="bar-cell"><span class="bar" style="--w:53.7%"></span><span class="bar-val">53.7</span></div></td></tr>
+                                  </tbody>
+                                </table>
+                <figcaption>How accurate each prompting strategy was on the 80-image sample, with what each one asks the model to do. Highlighted: the best performer.</figcaption>
+              </figure>
+              <p>
+                <span class="para-label">The result</span>
+                Chain of Thought was best on all four measures at 72.5%
+                accuracy, and Few-Shot was the weakest. Early-stage wounds
+                were the hardest to call: Chain of Thought scored 50% on Stage
+                1 but 90% on Stage 3. Small changes in wording shifted the
+                answers, and adding medical context made them steadier. I
+                presented the results at WPI&rsquo;s NSF REU research
+                symposium.
+              </p>
+            </div>
+            <ul class="tags">
+              <li>Prompt Engineering</li>
+              <li>Applied AI Research</li>
+              <li>Medical Image Analysis</li>
+              <li>Python</li>
+            </ul>
+          </div>
+        </li>
 
-    </ol>
+      </ol>
+    </div>
   </section>
 
   <!-- ==========================================================
        EDIT: PROJECTS
-       To add a project: copy one entire <article class="card"> … </article>
-       block below and change the number, title, text, tags, and links.
-       The grid reflows on its own — no other changes needed.
+       To add a project: copy one entire <article class="card panel"> …
+       </article> block below and change the icon, number, title, text,
+       tags, and links. The grid reflows on its own — no other changes needed.
        ========================================================== -->
   <section class="section" id="work">
     <h2 class="section-title"><span class="section-num">03</span> Projects</h2>
@@ -169,40 +338,198 @@
     <div class="grid">
 
       <!-- ---- project card ---- -->
-      <article class="card">
-        <p class="card-num">01</p>
+      <article class="card panel">
+        <div class="card-head">
+          <span class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+          </span>
+          <p class="card-num">01</p>
+        </div>
         <h3 class="card-title">Unified Compensation Modeling Engine</h3>
-        <p class="card-meta">Graduate Qualifying Project &middot; Jan&ndash;May 2026</p>
-        <p class="card-text">
-          Partnered with Boston Scientific's Urology Compensation Strategy team
-          to modernize a manual, spreadsheet-based compensation process into a
-          centralized, rule-driven system. I helped design the underlying data
-          architecture and build a business-facing interface for running and
-          comparing plan scenarios.
-        </p>
+        <p class="card-meta">Graduate Qualifying Project &middot; <span class="card-dates">Jan 2026 &ndash; May 2026</span></p>
+        <div class="card-text">
+          <p class="overview"><strong>
+            For my graduate capstone at WPI, sponsored by a medical device
+            company, our four-person team replaced spreadsheet-based sales
+            compensation modeling with a rule-driven system in Snowflake, and
+            I built the Tableau dashboards that present its results.
+          </strong></p>
+          <p>
+            <span class="para-label">The problem</span>
+            The sponsor&rsquo;s compensation team designs sales incentive
+            plans and has to test many versions of each against real sales
+            data before rollout. They did this in spreadsheets with repeated
+            formulas and inconsistent data, which was slow, error-prone and
+            hard to scale.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            We built the system in Snowflake. Sales results sit in a star
+            schema, and each plan&rsquo;s rules live in a separate rules
+            schema with header, detail and assignment layers. A calculation
+            engine of stored procedures written in SQL scripting matches rules
+            to sales, computes Tier 1, accelerator and bonus payouts, and
+            unifies them into one output table, with validation checks along
+            the way. My teammates built the Streamlit app where analysts enter
+            plan parameters without writing SQL.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I designed and built the Tableau dashboards that read the
+            engine&rsquo;s output: a Payout Summary comparing current and
+            proposed plans, a Most Important Metrics view of representative
+            performance against plan over time, and a Monthly Cash Flow
+            Summary showing when payouts land. The data model and calculation
+            engine were a joint effort across all four of us.
+          </p>
+          <figure class="viz">
+            <svg viewBox="0 0 320 336" role="img" aria-label="Data flow diagram: sales data feeds a star schema and plan inputs from a Streamlit app feed a rules schema; both go into the calculation engine, which checks rule eligibility, computes payouts and unifies them into one table; the Tableau dashboards read that table.">
+                          <rect x="5" y="2" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="80.0" y="18.0" class="v-t" text-anchor="middle">Sales data</text>
+                          <text x="80.0" y="33.0" class="v-s" text-anchor="middle">by rep and product</text>
+                          <rect x="165" y="2" width="150" height="40" rx="6" class="v-box v-dim"/>
+                          <text x="240.0" y="18.0" class="v-t" text-anchor="middle">Streamlit app</text>
+                          <text x="240.0" y="33.0" class="v-s" text-anchor="middle">inputs, by teammates</text>
+                          <line x1="80" y1="42" x2="80.0" y2="52.0" class="v-arrow"/>
+                          <path d="M80.0 58.0 L76.5 52.0 L83.5 52.0 Z" class="v-head"/>
+                          <line x1="240" y1="42" x2="240.0" y2="52.0" class="v-arrow"/>
+                          <path d="M240.0 58.0 L236.5 52.0 L243.5 52.0 Z" class="v-head"/>
+                          <rect x="5" y="58" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="80.0" y="74.0" class="v-t" text-anchor="middle">Star schema</text>
+                          <text x="80.0" y="89.0" class="v-s" text-anchor="middle">facts and dimensions</text>
+                          <rect x="165" y="58" width="150" height="40" rx="6" class="v-box"/>
+                          <text x="240.0" y="74.0" class="v-t" text-anchor="middle">Rules schema</text>
+                          <text x="240.0" y="89.0" class="v-s" text-anchor="middle">rules stored as data</text>
+                          <line x1="80" y1="98" x2="124.6" y2="119.4" class="v-arrow"/>
+                          <path d="M130.0 122.0 L123.1 122.6 L126.1 116.2 Z" class="v-head"/>
+                          <line x1="240" y1="98" x2="195.4" y2="119.4" class="v-arrow"/>
+                          <path d="M190.0 122.0 L193.9 116.2 L196.9 122.6 Z" class="v-head"/>
+                          <rect x="5" y="122" width="310" height="140" rx="8" class="v-box v-group"/>
+                          <text x="16.0" y="139.0" class="v-s" text-anchor="start">Calculation engine (stored procedures)</text>
+                          <rect x="16" y="148" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="165.5" class="v-t" text-anchor="middle">Rule eligibility</text>
+                          <line x1="160" y1="174" x2="160.0" y2="176.0" class="v-arrow"/>
+                          <path d="M160.0 182.0 L156.5 176.0 L163.5 176.0 Z" class="v-head"/>
+                          <rect x="16" y="182" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="199.5" class="v-t" text-anchor="middle">Payouts: Tier 1, Accelerator, Bonus</text>
+                          <line x1="160" y1="208" x2="160.0" y2="210.0" class="v-arrow"/>
+                          <path d="M160.0 216.0 L156.5 210.0 L163.5 210.0 Z" class="v-head"/>
+                          <rect x="16" y="216" width="288" height="26" rx="5" class="v-box"/>
+                          <text x="160.0" y="233.5" class="v-t" text-anchor="middle">Unified payout table</text>
+                          <line x1="160" y1="262" x2="160.0" y2="272.0" class="v-arrow"/>
+                          <path d="M160.0 278.0 L156.5 272.0 L163.5 272.0 Z" class="v-head"/>
+                          <rect x="5" y="278" width="310" height="56" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="294.5" class="v-t" text-anchor="middle">Tableau dashboards</text>
+                          <text x="160.0" y="309.5" class="v-s" text-anchor="middle">Payout Summary &middot; Most Important Metrics</text>
+                          <text x="160.0" y="324.5" class="v-s" text-anchor="middle">Monthly Cash Flow Summary</text>
+                        </svg>
+            <figcaption>How data flows through the system. Highlighted: the part I built. Dashed: built by teammates.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            The system covers the three standard payout types for four of the
+            six franchises, the only four we had access to, since the other
+            two were more complex and not modeled in Excel. The team expects
+            it to save over 300 hours of work a year, and analysts can test a
+            broader range of plan scenarios from consistent numbers before
+            choosing one.
+          </p>
+        </div>
         <ul class="tags">
           <li>Snowflake</li>
           <li>SQL</li>
-          <li>Streamlit</li>
           <li>Tableau</li>
+          <li>Compensation Planning Analysis</li>
         </ul>
       </article>
 
       <!-- ---- project card ---- -->
-      <article class="card">
-        <p class="card-num">02</p>
+      <article class="card panel">
+        <div class="card-head">
+          <span class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
+          <p class="card-num">02</p>
+        </div>
         <h3 class="card-title">Edge-Based Smart Lock System</h3>
-        <p class="card-meta">Jan&ndash;May 2025</p>
-        <p class="card-text">
-          An embedded system on a Raspberry Pi that uses audio and visual
-          recognition to enable accessible, touch-free door unlocking. Most of
-          the work went into compressing and optimizing the models so they
-          could run efficiently on very limited hardware.
-        </p>
+        <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
+        <div class="card-text">
+          <p class="overview"><strong>
+            In a WPI embedded machine learning course, our team built a
+            touch-free door lock that listens for a wake word and reads a
+            hand-signed code, and I compressed its models so they run fast on
+            a Raspberry Pi.
+          </strong></p>
+          <p>
+            <span class="para-label">The problem</span>
+            Keys and keypads do not work for everyone, including people with
+            limited vision or mobility, and a lock has to run on a small,
+            inexpensive computer with tight memory and speed limits.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            A Raspberry Pi with a microphone, camera and LCD listens for the
+            wake word &ldquo;House&rdquo;, turns on the camera and reads a
+            four-digit code signed by hand. Two CNNs do the recognizing: a
+            wake word model trained on Google Speech Commands with MFCC
+            features, and a sign-language model trained on a 27-class image
+            set, using digits 0 to 9. Teammates trained the models and wrote
+            the Pi software, and explored a binarized network and its hardware
+            implementation with hls4ml, Yosys and OpenSTA.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I compressed the wake word model with TensorFlow Model
+            Optimization and Lite-RT. I tested unstructured and structured
+            pruning, dynamic range, float16, int16/int8 and full-integer
+            quantization, weight clustering and quantization-aware training,
+            and compared every version on size and accuracy.
+          </p>
+          <figure class="viz">
+                        <table class="bars">
+                          <caption>Model size (KB)</caption>
+                          <tbody>
+                            <tr><th scope="row">Original</th><td><div class="bar-cell"><span class="bar base" style="--w:100.0%"></span><span class="bar-val">79.1</span></div></td></tr>
+                            <tr><th scope="row">Float16</th><td><div class="bar-cell"><span class="bar" style="--w:55.9%"></span><span class="bar-val">44.2</span></div></td></tr>
+                            <tr><th scope="row">Dynamic range</th><td><div class="bar-cell"><span class="bar best" style="--w:31.9%"></span><span class="bar-val">25.2</span></div></td></tr>
+                            <tr><th scope="row">Int16 / int8</th><td><div class="bar-cell"><span class="bar" style="--w:35.4%"></span><span class="bar-val">28.0</span></div></td></tr>
+                            <tr><th scope="row">Full integer</th><td><div class="bar-cell"><span class="bar" style="--w:33.6%"></span><span class="bar-val">26.6</span></div></td></tr>
+                            <tr><th scope="row">Quantization-aware</th><td><div class="bar-cell"><span class="bar" style="--w:34.3%"></span><span class="bar-val">27.1</span></div></td></tr>
+                            <tr><th scope="row">Pruned</th><td><div class="bar-cell"><span class="bar" style="--w:20.5%"></span><span class="bar-val">16.2</span></div></td></tr>
+                            <tr><th scope="row">Pruned, structured</th><td><div class="bar-cell"><span class="bar" style="--w:13.0%"></span><span class="bar-val">10.3</span></div></td></tr>
+                            <tr><th scope="row">Weight clustering</th><td><div class="bar-cell"><span class="bar" style="--w:19.0%"></span><span class="bar-val">15.0</span></div></td></tr>
+                          </tbody>
+                        </table>
+                        <table class="bars">
+                          <caption>Accuracy (%)</caption>
+                          <tbody>
+                            <tr><th scope="row">Original</th><td><div class="bar-cell"><span class="bar base" style="--w:96.1%"></span><span class="bar-val">96.1</span></div></td></tr>
+                            <tr><th scope="row">Float16</th><td><div class="bar-cell"><span class="bar" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Dynamic range</th><td><div class="bar-cell"><span class="bar best" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Int16 / int8</th><td><div class="bar-cell"><span class="bar" style="--w:98.3%"></span><span class="bar-val">98.3</span></div></td></tr>
+                            <tr><th scope="row">Full integer</th><td><div class="bar-cell"><span class="bar" style="--w:50.0%"></span><span class="bar-val">50.0</span></div></td></tr>
+                            <tr><th scope="row">Quantization-aware</th><td><div class="bar-cell"><span class="bar" style="--w:97.1%"></span><span class="bar-val">97.1</span></div></td></tr>
+                            <tr><th scope="row">Pruned</th><td><div class="bar-cell"><span class="bar" style="--w:97.3%"></span><span class="bar-val">97.3</span></div></td></tr>
+                            <tr><th scope="row">Pruned, structured</th><td><div class="bar-cell"><span class="bar" style="--w:94.5%"></span><span class="bar-val">94.5</span></div></td></tr>
+                            <tr><th scope="row">Weight clustering</th><td><div class="bar-cell"><span class="bar" style="--w:97.7%"></span><span class="bar-val">97.7</span></div></td></tr>
+                          </tbody>
+                        </table>
+            <figcaption>Wake word model size and accuracy for each compression method I tested. Highlighted: dynamic range quantization, the best all-round result.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            Dynamic range quantization cut the model from 79 KB to 25 KB (68%
+            smaller) and each prediction on the Pi from 108 to 36
+            microseconds, while accuracy rose from 96.1% to 98.3%. Pruning
+            reached 10 KB at 94.5%. Full-integer quantization fell to 50%
+            accuracy, and keeping int16 activations restored 98.3% at 28 KB.
+          </p>
+        </div>
         <ul class="tags">
+          <li>Model Optimization</li>
           <li>TensorFlow</li>
           <li>Embedded ML</li>
-          <li>Model Optimization</li>
+          <li>Quantization &amp; Pruning</li>
           <li>Raspberry Pi</li>
         </ul>
         <p class="card-links">
@@ -211,19 +538,118 @@
       </article>
 
       <!-- ---- project card ---- -->
-      <article class="card">
-        <p class="card-num">03</p>
+      <article class="card panel">
+        <div class="card-head">
+          <span class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          </span>
+          <p class="card-num">03</p>
+        </div>
         <h3 class="card-title">Multimodal Stock Movement Prediction</h3>
-        <p class="card-meta">Jan&ndash;May 2025</p>
-        <p class="card-text">
-          A hybrid deep learning model that combines financial news sentiment
-          with historical price data to predict stock price movement, exploring
-          whether fusing multiple data types beats either signal on its own.
-        </p>
+        <p class="card-meta"><span class="card-dates">Jan 2025 &ndash; May 2025</span></p>
+        <div class="card-text">
+          <p class="overview"><strong>
+            In a WPI deep learning course, our four-person team tested whether
+            financial news improves stock-direction predictions beyond price
+            history alone, and I built the price data work, the price-only
+            models and the model that fuses news with prices.
+          </strong></p>
+          <p>
+            <span class="para-label">The problem</span>
+            Most stock models look only at past prices. The question was
+            whether news sentiment adds real predictive signal about whether a
+            stock moves up or down, and whether combining the two beats either
+            one alone.
+          </p>
+          <p>
+            <span class="para-label">The solution</span>
+            The team scored news headlines with FinBERT, paired them with
+            S&amp;P 500 price history from Yahoo Finance, and compared six
+            models, from a naive baseline and a BiLSTM to FinBERT classifiers
+            and transformers, before fusing price and sentiment in a
+            dual-stream transformer. My teammates built and tuned the FinBERT
+            sentiment models.
+          </p>
+          <p>
+            <span class="para-label">My part</span>
+            I started with the data: 15 S&amp;P 500 stocks chosen to cover
+            steady, volatile and flat behavior, with engineered features such
+            as moving averages, RSI and MACD, checked with a random forest. I
+            built the price-only models that set the baseline, a naive
+            forecast, a BiLSTM and a multi-task transformer that predicts the
+            next day, week and month from 30 days of features, and then the
+            dual-stream transformer, with an autoencoder compressing the
+            sentiment embeddings and focal loss for class imbalance.
+          </p>
+          <figure class="viz">
+            <svg viewBox="0 0 320 346" role="img" aria-label="Diagram of the dual-stream model: price history becomes engineered features, time embeddings and a price encoder; news headlines become FinBERT sentiment embeddings, an autoencoder and a sentiment encoder; cross-attention joins the two streams to predict up or down.">
+                          <rect x="5" y="2" width="150" height="42" rx="6" class="v-box"/>
+                          <text x="80.0" y="19.0" class="v-t" text-anchor="middle">Price history</text>
+                          <text x="80.0" y="34.0" class="v-s" text-anchor="middle">S&amp;P 500, 30 days</text>
+                          <rect x="165" y="2" width="150" height="42" rx="6" class="v-box"/>
+                          <text x="240.0" y="19.0" class="v-t" text-anchor="middle">News headlines</text>
+                          <text x="240.0" y="34.0" class="v-s" text-anchor="middle">per stock, per day</text>
+                          <line x1="80" y1="44" x2="80.0" y2="54.0" class="v-arrow"/>
+                          <path d="M80.0 60.0 L76.5 54.0 L83.5 54.0 Z" class="v-head"/>
+                          <line x1="240" y1="44" x2="240.0" y2="54.0" class="v-arrow"/>
+                          <path d="M240.0 60.0 L236.5 54.0 L243.5 54.0 Z" class="v-head"/>
+                          <rect x="5" y="60" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="77.0" class="v-t" text-anchor="middle">Price features</text>
+                          <text x="80.0" y="92.0" class="v-s" text-anchor="middle">technical indicators</text>
+                          <rect x="165" y="60" width="150" height="42" rx="6" class="v-box v-dim"/>
+                          <text x="240.0" y="77.0" class="v-t" text-anchor="middle">FinBERT</text>
+                          <text x="240.0" y="92.0" class="v-s" text-anchor="middle">sentiment embeddings</text>
+                          <line x1="80" y1="102" x2="80.0" y2="112.0" class="v-arrow"/>
+                          <path d="M80.0 118.0 L76.5 112.0 L83.5 112.0 Z" class="v-head"/>
+                          <line x1="240" y1="102" x2="240.0" y2="112.0" class="v-arrow"/>
+                          <path d="M240.0 118.0 L236.5 112.0 L243.5 112.0 Z" class="v-head"/>
+                          <rect x="5" y="118" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="135.0" class="v-t" text-anchor="middle">Time embeddings</text>
+                          <text x="80.0" y="150.0" class="v-s" text-anchor="middle">sequence position</text>
+                          <rect x="165" y="118" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="240.0" y="135.0" class="v-t" text-anchor="middle">Autoencoder</text>
+                          <text x="240.0" y="150.0" class="v-s" text-anchor="middle">compresses embeddings</text>
+                          <line x1="80" y1="160" x2="80.0" y2="170.0" class="v-arrow"/>
+                          <path d="M80.0 176.0 L76.5 170.0 L83.5 170.0 Z" class="v-head"/>
+                          <line x1="240" y1="160" x2="240.0" y2="170.0" class="v-arrow"/>
+                          <path d="M240.0 176.0 L236.5 170.0 L243.5 170.0 Z" class="v-head"/>
+                          <rect x="5" y="176" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="80.0" y="193.0" class="v-t" text-anchor="middle">Price encoder</text>
+                          <text x="80.0" y="208.0" class="v-s" text-anchor="middle">transformer</text>
+                          <rect x="165" y="176" width="150" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="240.0" y="193.0" class="v-t" text-anchor="middle">Sentiment encoder</text>
+                          <text x="240.0" y="208.0" class="v-s" text-anchor="middle">transformer</text>
+                          <line x1="80" y1="218" x2="80.0" y2="234.0" class="v-arrow"/>
+                          <path d="M80.0 240.0 L76.5 234.0 L83.5 234.0 Z" class="v-head"/>
+                          <line x1="240" y1="218" x2="240.0" y2="234.0" class="v-arrow"/>
+                          <path d="M240.0 240.0 L236.5 234.0 L243.5 234.0 Z" class="v-head"/>
+                          <rect x="5" y="240" width="310" height="46" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="259.0" class="v-t" text-anchor="middle">Cross-attention</text>
+                          <text x="160.0" y="274.0" class="v-s" text-anchor="middle">each stream attends to the other</text>
+                          <line x1="160" y1="286" x2="160.0" y2="296.0" class="v-arrow"/>
+                          <path d="M160.0 302.0 L156.5 296.0 L163.5 296.0 Z" class="v-head"/>
+                          <rect x="5" y="302" width="310" height="42" rx="6" class="v-box v-mine"/>
+                          <text x="160.0" y="319.0" class="v-t" text-anchor="middle">Prediction</text>
+                          <text x="160.0" y="334.0" class="v-s" text-anchor="middle">up or down</text>
+                        </svg>
+            <figcaption>How the dual-stream model handles price and news. Highlighted: the parts I built. Dashed: built by teammates.</figcaption>
+          </figure>
+          <p>
+            <span class="para-label">The result</span>
+            The dual-stream model reached 92.7% accuracy for next-day
+            direction and 97.81% for next-week, against 51.7% for the naive
+            baseline on next-day. Sentiment data covered only about 25 days,
+            so those numbers need a longer test window before they can be
+            trusted.
+          </p>
+        </div>
         <ul class="tags">
           <li>PyTorch</li>
+          <li>Transformers</li>
+          <li>Multimodal Data Analysis</li>
+          <li>Time-Series Modeling</li>
           <li>NLP</li>
-          <li>Time-Series</li>
+          <li>Model Evaluation</li>
         </ul>
         <p class="card-links">
           <a href="https://github.com/atiwari18/BuffERT">Source&nbsp;&rarr;</a>
@@ -234,28 +660,6 @@
   </section>
 
 </main>
-
-<!-- ==========================================================
-     EDIT: FOOTER LINKS — swap the hrefs for your real profiles
-     ========================================================== -->
-<footer class="footer" id="contact">
-  <div class="footer-inner">
-    <div class="footer-cta">
-      <p class="footer-line">
-        Open to machine learning, AI/LLM applications &amp; data engineering
-        roles across industries.
-      </p>
-      <a class="footer-mail" href="mailto:k30richards@gmail.com">k30richards@gmail.com</a>
-    </div>
-    <nav class="footer-links" aria-label="Elsewhere">
-      <a href="https://www.linkedin.com/in/kdrichards30">LinkedIn</a>
-      <a href="https://github.com/k30richards">GitHub</a>
-    </nav>
-  </div>
-  <p class="colophon">
-    Built by hand with HTML &amp; CSS. Set in Fraunces &amp; Space&nbsp;Grotesk.
-  </p>
-</footer>
 
 </body>
 </html>
