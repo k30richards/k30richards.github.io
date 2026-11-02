@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Section pop-up tests</title>
+<!--
+  Acceptance tests for the Section pop-ups: the Hero is the whole page, its
+  Section buttons open About, Experience and Projects as a dialog, and the
+  dialog is keyboard- and screen-reader-friendly.
+
+  Dependency-free: open this page in a browser that is VISIBLE on screen,
+  served over HTTP from the repo root, e.g.
+      python -m http.server 8792 --bind 127.0.0.1
+      http://127.0.0.1:8792/tests/popups.html
+  Add ?post=1 to also POST the results as JSON to /__results when finished.
+
+  The page loads ../index.html into one iframe per viewport and drives it
+  with real DOM calls (clicks, key events, focus). Results go to #results
+  (one PASS / FAIL line per test, then a SUMMARY line), to
+  window.__testResults, and document.title becomes DONE.
+
+  Two things a script cannot do, so they are checked by their cause instead:
+    - Esc: a page cannot press the real key, so the test checks the dialog is
+      opened with showModal() (which makes Esc close it natively), that the
+      page's own key handling never cancels Escape, and that closing by any
+      route (the "close" event) restores focus and scrolling.
+    - Reduced motion: the OS setting cannot be toggled here, so the test
+      checks the stylesheet carries the reduce rule that zeroes animations.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 13px/1.4 ui-monospace, Consolas, monospace; background: #fff; color: #111; }
+  #stage { position: fixed; top: 0; left: 0; z-index: 0; }
+  #stage iframe { border: 0; display: block; background: #fff; }
+  #results {
+    position: fixed; right: 0; bottom: 0; z-index: 1; margin: 0;
+    max-width: 60vw; max-height: 45vh; overflow: auto; padding: 8px;
+    background: rgba(255,255,255,.92); color: #111; border: 1px solid #999;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<pre id="results"></pre>
+<script>
+(async function () {
+  'use strict';
+
+  const results = { passed: 0, failed: 0, skipped: 0, lines: [] };
+  window.__testResults = results;
+  const out = document.getElementById('results');
+  function record(line) { results.lines.push(line); out.textContent += line + '\n'; }
+  function pass(name) { results.passed++; record('PASS ' + name); }
+  function fail(name, why) { results.failed++; record('FAIL ' + name + ': ' + why); }
+
+  // A check returns nothing (or null) to pass, or a string saying why not.
+  async function check(name, fn) {
+    try {
+      const why = await fn();
+      if (why) fail(name, why); else pass(name);
+    } catch (e) {
+      fail(name, 'error: ' + (e && e.stack || e));
+    }
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  async function settle() { await sleep(50); await sleep(50); }
+  const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+  const DASH = '–';
+
+  const stage = document.getElementById('stage');
+
+  async function openFrame(w, h, opts) {
+    opts = opts || {};
+    stage.textContent = '';
+    const frame = document.createElement('iframe');
+    frame.style.width = w + 'px';
+    frame.style.height = h + 'px';
+    // Scripts off, same origin: what a visitor with JavaScript disabled gets.
+    if (opts.noscript) frame.setAttribute('sandbox', 'allow-same-origin');
+    const loaded = new Promise(r => frame.addEventListener('load', r, { once: true }));
+    frame.src = '../index.html' + (opts.hash || '');
+    stage.appendChild(frame);
+    await loaded;
+    await frame.contentDocument.fonts.ready;
+    await sleep(opts.hash ? 500 : 0);
+    await settle();
+    return { frame, win: frame.contentWindow, doc: frame.contentDocument, W: w, H: h, label: w + 'x' + h };
+  }
+
+  const q = (ctx, sel) => ctx.doc.querySelector(sel);
+  const qa = (ctx, sel) => Array.from(ctx.doc.querySelectorAll(sel));
+  const dlg = ctx => q(ctx, 'dialog.popup');
+  const heroLink = (ctx, name) => qa(ctx, '.hero-sections a').find(a => norm(a.textContent) === name);
+  const heading = ctx => norm(q(ctx, '#popup-title').textContent);
+  const visible = el => !!el && !el.hidden && el.getClientRects().length > 0;
+  const step = (ctx, which) => qa(ctx, '.popup-step')[which === 'prev' ? 0 : 1];
+  const shown = ctx => qa(ctx, '.popup-tabpanel').find(visible);
+  // The dialog holds every Section's page (two hidden); these see the open one.
+  const openTabs = ctx => qa(ctx, '.popup-page:not([hidden]) [role="tab"]');
+
+  async function open(ctx, name) { heroLink(ctx, name).click(); await sleep(450); }
+  async function closeByButton(ctx) { q(ctx, '.popup-close').click(); await settle(); }
+  function key(ctx, target, k, extra) {
+    const e = new ctx.win.KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, extra));
+    target.dispatchEvent(e);
+    return e;
+  }
+
+  function describeEl(el) {
+    if (!el) return 'null';
+    let s = el.tagName + (el.id ? '#' + el.id : '');
+    if (el.className && typeof el.className === 'string') s += '.' + el.className.trim().split(/\s+/).join('.');
+    return s;
+  }
+
+  function hitTarget(ctx, a) {
+    const r = a.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    if (x < 0 || y < 0 || x > ctx.W || y > ctx.H) return 'centre (' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is off screen';
+    const hit = ctx.doc.elementFromPoint(x, y);
+    return hit === a || a.contains(hit) ? null :
+      'elementFromPoint(' + x.toFixed(1) + ', ' + y.toFixed(1) + ') is ' + describeEl(hit) + ', not the link';
+  }
+
+  // The focusable controls inside the dialog, in order: what Tab visits.
+  function stops(ctx) {
+    return qa(ctx, 'dialog.popup a[href], dialog.popup button, dialog.popup [tabindex]')
+      .filter(n => n.tabIndex >= 0 && !n.disabled && n.getClientRects().length);
+  }
+
+  /* ---- the Hero, with the dialog closed ---------------------------------- */
+
+  async function heroTests(ctx) {
+    const at = '@' + ctx.label;
+
+    await check('hero_pop_up_mode_is_on' + at, () =>
+      ctx.doc.documentElement.classList.contains('popups') ? null : 'html has no .popups class');
+
+    await check('hero_is_the_whole_page_top_bar_and_sections_hidden' + at, () => {
+      const hiddenAll = sel => qa(ctx, sel).every(e => ctx.win.getComputedStyle(e).display === 'none');
+      if (!qa(ctx, '.section').length) return 'no .section in index.html to hide';
+      if (!hiddenAll('.topbar')) return 'the top bar is visible';
+      if (!hiddenAll('.section')) return 'a Section is visible under the Hero';
+    });
+
+    await check('hero_fits_one_screen_without_scrolling' + at, () => {
+      const h = ctx.doc.documentElement.scrollHeight;
+      return h <= ctx.H + 1 ? null : 'page is ' + h + 'px tall in a ' + ctx.H + 'px window';
+    });
+
+    await check('hero_section_buttons_are_about_experience_projects' + at, () => {
+      const names = qa(ctx, '.hero-sections a').map(a => norm(a.textContent));
+      return JSON.stringify(names) === JSON.stringify(['About', 'Experience', 'Projects']) ? null :
+        'buttons are ' + JSON.stringify(names);
+    });
+
+    await check('hero_has_no_view_projects_or_get_in_touch_buttons' + at, () => {
+      const t = norm(q(ctx, '#top').textContent);
+      return /view projects|get in touch/i.test(t) ? 'Hero still says: ' + t.match(/view projects|get in touch/i)[0] : null;
+    });
+
+    await check('hero_contact_links_are_email_linkedin_github' + at, () => {
+      const hrefs = qa(ctx, '.hero-contact a').map(a => a.getAttribute('href'));
+      const want = ['mailto:k30richards@gmail.com', 'https://www.linkedin.com/in/kdrichards30', 'https://github.com/k30richards'];
+      return JSON.stringify(hrefs) === JSON.stringify(want) ? null : 'contact links are ' + JSON.stringify(hrefs);
+    });
+
+    for (const a of qa(ctx, '.hero-sections a, .hero-contact a')) {
+      await check('hero_link_' + norm(a.textContent).toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_is_hit_target' + at,
+        () => hitTarget(ctx, a));
+    }
+  }
+
+  /* ---- the dialog: semantics, focus, closing ------------------------------ */
+
+  async function dialogTests(ctx) {
+    const at = '@' + ctx.label;
+    const opener = heroLink(ctx, 'About');
+    await open(ctx, 'About');
+
+    await check('dialog_is_a_real_modal_dialog_labelled_by_its_heading' + at, () => {
+      const d = dlg(ctx);
+      if (!d) return 'no <dialog class="popup">';
+      if (!d.open) return 'dialog is not open after clicking About';
+      if (!d.matches(':modal')) return 'not opened with showModal()';
+      if (d.getAttribute('aria-modal') !== 'true') return 'aria-modal is not "true"';
+      const h = ctx.doc.getElementById(d.getAttribute('aria-labelledby') || '');
+      if (!h || h.tagName !== 'H2') return 'aria-labelledby does not point at an <h2>';
+      if (heading(ctx) !== '01 About') return 'heading reads ' + JSON.stringify(heading(ctx));
+    });
+
+    await check('focus_moves_into_the_dialog_on_open' + at, () => {
+      const a = ctx.doc.activeElement;
+      return a && a.id === 'popup-title' ? null : 'focus is on ' + describeEl(a) + ', not the dialog heading';
+    });
+
+    await check('page_behind_cannot_scroll_while_open' + at, () => {
+      const root = ctx.doc.documentElement;
+      if (!root.classList.contains('popup-open')) return 'html has no .popup-open';
+      return ctx.win.getComputedStyle(root).overflow === 'hidden' ? null : 'html overflow is ' + ctx.win.getComputedStyle(root).overflow;
+    });
+
+    await check('tab_cycles_inside_the_dialog_forwards_and_backwards' + at, () => {
+      const list = stops(ctx);
+      if (list.length < 2) return 'fewer than two focusable controls: ' + list.length;
+      const first = list[0], last = list[list.length - 1];
+      last.focus();
+      const fwd = key(ctx, last, 'Tab');
+      if (!fwd.defaultPrevented || ctx.doc.activeElement !== first)
+        return 'Tab from the last control (' + describeEl(last) + ') did not wrap to ' + describeEl(first);
+      const back = key(ctx, first, 'Tab', { shiftKey: true });
+      if (!back.defaultPrevented || ctx.doc.activeElement !== last)
+        return 'Shift+Tab from the first control did not wrap to ' + describeEl(last);
+    });
+
+    await check('esc_is_left_to_the_native_dialog' + at, () => {
+      const e = key(ctx, ctx.doc.activeElement || dlg(ctx), 'Escape');
+      if (e.defaultPrevented) return 'the page cancels the Escape key';
+      return dlg(ctx).matches(':modal') ? null : 'dialog is not modal, so Esc would not close it';
+    });
+
+    await check('a_click_inside_the_card_keeps_it_open' + at, async () => {
+      const card = q(ctx, '.popup-card');
+      card.dispatchEvent(new ctx.win.PointerEvent('pointerdown', { bubbles: true }));
+      card.dispatchEvent(new ctx.win.MouseEvent('click', { bubbles: true }));
+      await settle();
+      return dlg(ctx).open ? null : 'dialog closed on a click inside the card';
+    });
+
+    await check('x_button_closes_and_focus_returns_to_the_opener' + at, async () => {
+      if (!q(ctx, '.popup-close').getAttribute('aria-label')) return 'the X button has no accessible name';
+      await closeByButton(ctx);
+      if (dlg(ctx).open) return 'dialog still open after X';
+      if (ctx.doc.documentElement.classList.contains('popup-open')) return 'html still has .popup-open';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement) + ', not the About button';
+    });
+
+    await open(ctx, 'About');
+    await check('click_on_the_dimmed_page_closes_and_focus_returns' + at, async () => {
+      const d = dlg(ctx);
+      d.dispatchEvent(new ctx.win.PointerEvent('pointerdown', { bubbles: true }));
+      d.dispatchEvent(new ctx.win.MouseEvent('click', { bubbles: true }));
+      await settle();
+      if (d.open) return 'dialog still open after clicking the dimmed page';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+
+    await open(ctx, 'About');
+    await check('closing_the_way_esc_does_restores_focus_and_scrolling' + at, async () => {
+      dlg(ctx).close();          // what the browser does for Esc
+      await settle();
+      if (ctx.doc.documentElement.classList.contains('popup-open')) return 'html still has .popup-open';
+      return ctx.doc.activeElement === opener ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+  }
+
+  /* ---- Previous and Next --------------------------------------------------- */
+
+  async function stepTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'About');
+    const label = which => step(ctx, which).getAttribute('aria-label');
+    const live = () => norm(q(ctx, 'dialog.popup [aria-live]').textContent);
+
+    await check('about_has_next_but_no_previous' + at, () => {
+      if (visible(step(ctx, 'prev'))) return 'About shows a Previous button';
+      return visible(step(ctx, 'next')) && label('next') === 'Next: Experience' ? null :
+        'Next is ' + (visible(step(ctx, 'next')) ? JSON.stringify(label('next')) : 'missing');
+    });
+
+    step(ctx, 'next').click(); await settle();
+    await check('next_goes_to_experience_with_both_arrows' + at, () => {
+      if (heading(ctx) !== '02 Experience') return 'heading reads ' + JSON.stringify(heading(ctx));
+      if (label('prev') !== 'Previous: About' || label('next') !== 'Next: Projects')
+        return 'labels are ' + JSON.stringify([label('prev'), label('next')]);
+      if (!visible(step(ctx, 'prev')) || !visible(step(ctx, 'next'))) return 'an arrow is hidden mid-way';
+      if (!/Experience, 2 of 3/.test(live())) return 'live region says ' + JSON.stringify(live());
+    });
+
+    step(ctx, 'next').click(); await settle();
+    await check('projects_has_previous_but_no_next_and_focus_stays_in_the_dialog' + at, () => {
+      if (heading(ctx) !== '03 Projects') return 'heading reads ' + JSON.stringify(heading(ctx));
+      if (visible(step(ctx, 'next'))) return 'Projects shows a Next button (it must not wrap)';
+      if (label('prev') !== 'Previous: Experience') return 'Previous is ' + JSON.stringify(label('prev'));
+      const a = ctx.doc.activeElement;
+      return a === step(ctx, 'prev') ? null : 'focus is on ' + describeEl(a) + ', not the Previous button';
+    });
+
+    step(ctx, 'prev').click(); await settle();
+    step(ctx, 'prev').click(); await settle();
+    await check('previous_walks_back_to_about' + at, () => {
+      if (heading(ctx) !== '01 About') return 'heading reads ' + JSON.stringify(heading(ctx));
+      return ctx.doc.activeElement === step(ctx, 'next') ? null : 'focus is on ' + describeEl(ctx.doc.activeElement);
+    });
+
+    await closeByButton(ctx);
+  }
+
+  /* ---- About ---------------------------------------------------------------- */
+
+  async function aboutTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'About');
+
+    await check('about_bio_is_three_paragraphs_in_one_font_size' + at, () => {
+      const ps = qa(ctx, '.popup-bio p');
+      if (ps.length !== 3) return 'found ' + ps.length + ' bio paragraphs';
+      const look = p => { const s = ctx.win.getComputedStyle(p); return s.fontSize + ' ' + s.fontFamily; };
+      const sizes = ps.map(look);
+      return sizes.every(s => s === sizes[0]) ? null : 'paragraphs differ: ' + JSON.stringify(sizes);
+    });
+
+    await check('about_quick_facts_are_based_in_education_status_seeking' + at, () => {
+      const labels = qa(ctx, '.popup-fact-label').map(e => norm(e.textContent).toLowerCase());
+      return JSON.stringify(labels) === JSON.stringify(['based in', 'education', 'status', 'seeking']) ? null :
+        'facts are ' + JSON.stringify(labels);
+    });
+
+    await check('about_seeking_spans_the_full_row' + at, () => {
+      const row = q(ctx, '.popup-facts').getBoundingClientRect().width;
+      const seeking = qa(ctx, '.popup-fact').find(f => /seeking/i.test(f.textContent)).getBoundingClientRect().width;
+      return Math.abs(row - seeking) <= 1 ? null : 'Seeking is ' + seeking.toFixed(0) + 'px in a ' + row.toFixed(0) + 'px row';
+    });
+
+    await check('about_toolkit_has_four_groups' + at, () => {
+      const n = qa(ctx, 'dialog.popup .toolkit-group').length;
+      return n === 4 ? null : 'found ' + n + ' Toolkit groups';
+    });
+
+    await closeByButton(ctx);
+  }
+
+  /* ---- Experience and Projects: tabs ----------------------------------------- */
+
+  async function tabsA11yAndKeys(ctx, sectionName, expectedTabs) {
+    const at = '@' + ctx.label, s = sectionName.toLowerCase();
+    const tabs = openTabs(ctx);
+
+    await check(s + '_tabs_follow_the_aria_tabs_pattern' + at, () => {
+      const list = q(ctx, '.popup-page:not([hidden]) [role="tablist"]');
+      if (!list || !list.getAttribute('aria-label')) return 'no labelled tablist';
+      if (tabs.length !== expectedTabs) return 'found ' + tabs.length + ' tabs, expected ' + expectedTabs;
+      for (const t of tabs) {
+        const p = ctx.doc.getElementById(t.getAttribute('aria-controls') || '');
+        if (!p || p.getAttribute('role') !== 'tabpanel' || p.getAttribute('aria-labelledby') !== t.id)
+          return 'tab "' + norm(t.textContent) + '" is not linked to a tabpanel';
+      }
+      const selected = tabs.filter(t => t.getAttribute('aria-selected') === 'true');
+      if (selected.length !== 1) return selected.length + ' tabs are selected';
+      const tabbable = tabs.filter(t => t.tabIndex === 0);
+      return tabbable.length === 1 && tabbable[0] === selected[0] ? null : 'only the selected tab should be in Tab order';
+    });
+
+    await check(s + '_arrow_keys_home_and_end_move_between_tabs' + at, () => {
+      tabs[0].focus();
+      key(ctx, tabs[0], 'ArrowRight');
+      if (ctx.doc.activeElement !== tabs[1] || tabs[1].getAttribute('aria-selected') !== 'true') return 'ArrowRight did not select tab 2';
+      key(ctx, tabs[1], 'End');
+      const last = tabs[tabs.length - 1];
+      if (ctx.doc.activeElement !== last || last.getAttribute('aria-selected') !== 'true') return 'End did not select the last tab';
+      key(ctx, last, 'Home');
+      if (ctx.doc.activeElement !== tabs[0] || tabs[0].getAttribute('aria-selected') !== 'true') return 'Home did not select the first tab';
+    });
+
+    await check(s + '_tab_dates_line_up_along_the_bottom' + at, () => {
+      const rows = {};
+      for (const t of tabs) (rows[Math.round(t.getBoundingClientRect().top)] = rows[Math.round(t.getBoundingClientRect().top)] || []).push(t);
+      for (const row of Object.values(rows)) {
+        const bottoms = row.map(t => Math.round(t.querySelector('.popup-tab-when').getBoundingClientRect().bottom));
+        if (!bottoms.every(b => Math.abs(b - bottoms[0]) <= 1)) return 'dates sit at ' + JSON.stringify(bottoms);
+      }
+    });
+  }
+
+  async function experienceTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'Experience');
+    const tabs = openTabs(ctx);
+    const tabText = t => ({ name: norm(t.querySelector('.popup-tab-name').textContent), when: norm(t.querySelector('.popup-tab-when').textContent) });
+
+    await check('experience_tabs_show_employer_and_full_dates' + at, () => {
+      const got = tabs.map(t => tabText(t));
+      const want = [
+        { name: 'Locust Walk', when: 'Jun 2026 ' + DASH + ' Aug 2026' },
+        { name: 'Worcester Polytechnic Institute', when: 'May 2024 ' + DASH + ' Aug 2024' }
+      ];
+      return JSON.stringify(got) === JSON.stringify(want) ? null : 'tabs are ' + JSON.stringify(got);
+    });
+
+    await check('experience_panel_has_only_title_description_and_skills' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const p = shown(ctx), t = norm(p.textContent);
+        if (!p.querySelector('.popup-tabpanel-title')) return 'tab ' + (i + 1) + ' has no role title';
+        if (!p.querySelector('.role-text')) return 'tab ' + (i + 1) + ' has no description';
+        if (!p.querySelector('.tags li')) return 'tab ' + (i + 1) + ' lists no skills';
+        if (/\b(19|20)\d\d\b/.test(t)) return 'tab ' + (i + 1) + ' repeats a date: ' + t.match(/\b(19|20)\d\d\b/)[0];
+        if (/Boston, MA|Worcester, MA/.test(t)) return 'tab ' + (i + 1) + ' shows a location';
+        if (t.includes(tabText(tabs[i]).name)) return 'tab ' + (i + 1) + ' repeats the employer name';
+      }
+    });
+
+    await check('experience_roles_are_ai_intern_and_research_associate' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).querySelector('.popup-tabpanel-title').textContent);
+      tabs[1].click(); const b = norm(shown(ctx).querySelector('.popup-tabpanel-title').textContent);
+      return a === 'AI Intern' && b === 'Research Associate' ? null : 'titles are ' + JSON.stringify([a, b]);
+    });
+
+    await check('experience_descriptions_name_the_technical_work' + at, () => {
+      tabs[0].click(); const a = norm(shown(ctx).textContent);
+      tabs[1].click(); const b = norm(shown(ctx).textContent);
+      for (const w of ['Claude API', 'whitelist', 'Apollo']) if (!a.includes(w)) return 'Locust Walk text lacks "' + w + '"';
+      for (const w of ['Chain of Thought', '1,091', 'F1']) if (!b.includes(w)) return 'WPI text lacks "' + w + '"';
+    });
+
+    tabs[0].click();
+    await tabsA11yAndKeys(ctx, 'Experience', 2);
+    await closeByButton(ctx);
+  }
+
+  async function projectsTests(ctx) {
+    const at = '@' + ctx.label;
+    await open(ctx, 'Projects');
+    const tabs = openTabs(ctx);
+    const tabText = t => ({ name: norm(t.querySelector('.popup-tab-name').textContent), when: norm(t.querySelector('.popup-tab-when').textContent) });
+
+    await check('projects_tabs_are_the_project_titles_with_full_dates' + at, () => {
+      const got = tabs.map(t => tabText(t));
+      const want = [
+        { name: 'Unified Compensation Modeling Engine', when: 'Jan 2026 ' + DASH + ' May 2026' },
+        { name: 'Edge-Based Smart Lock System', when: 'Jan 2025 ' + DASH + ' May 2025' },
+        { name: 'Multimodal Stock Movement Prediction', when: 'Jan 2025 ' + DASH + ' May 2025' }
+      ];
+      return JSON.stringify(got) === JSON.stringify(want) ? null : 'tabs are ' + JSON.stringify(got);
+    });
+
+    await check('projects_have_no_topic_filter_chips' + at, () => {
+      const chips = qa(ctx, '.popup-chip, [aria-pressed], .popup-filters');
+      return chips.length ? 'found ' + chips.length + ' filter control(s)' : null;
+    });
+
+    await check('projects_panel_is_description_and_skills_without_the_title_again' + at, () => {
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].click();
+        const p = shown(ctx), t = norm(p.textContent);
+        if (!p.querySelector('.card-text')) return 'tab ' + (i + 1) + ' has no description';
+        if (!p.querySelector('.tags li')) return 'tab ' + (i + 1) + ' lists no skills';
+        if (p.querySelector('h3, .popup-tabpanel-title')) return 'tab ' + (i + 1) + ' repeats the project title as a heading';
+        if (t.includes(tabText(tabs[i]).name)) return 'tab ' + (i + 1) + ' repeats the project title';
+        if (/\b(19|20)\d\d\b/.test(t)) return 'tab ' + (i + 1) + ' repeats a date';
+      }
+    });
+
+    await check('projects_source_links_are_kept_for_smart_lock_and_stock' + at, () => {
+      tabs[1].click();
+      const lock = shown(ctx).querySelector('a[href="https://github.com/TC4451/Wake_word_sign_digits"]');
+      tabs[2].click();
+      const stock = shown(ctx).querySelector('a[href="https://github.com/atiwari18/BuffERT"]');
+      return lock && stock ? null : 'missing Source link: ' + (lock ? '' : 'Smart Lock ') + (stock ? '' : 'Stock');
+    });
+
+    await check('projects_descriptions_state_their_numbers_honestly' + at, () => {
+      tabs[0].click(); const comp = norm(shown(ctx).textContent);
+      tabs[1].click(); const lock = norm(shown(ctx).textContent);
+      tabs[2].click(); const stock = norm(shown(ctx).textContent);
+      if (!/star schema/i.test(comp) || !/expects it to save over 300 hours/.test(comp))
+        return 'compensation text must name the star schema and say the sponsor "expects it to save over 300 hours"';
+      if (/\bsaved\b[^.]*300/.test(comp)) return 'compensation text claims 300 hours were saved';
+      if (!lock.includes('79 KB to 25 KB') || !lock.includes('108 to 36 microseconds') || !lock.includes('96.1% to 98.3%'))
+        return 'smart lock text lacks the 79 KB to 25 KB / 108 to 36 microseconds / 96.1% to 98.3% figures';
+      if (/115/.test(lock)) return 'smart lock text quotes the baseline 115 mW next to the quantized model';
+      if (!stock.includes('FinBERT') || !stock.includes('25 days')) return 'stock text must name FinBERT and the 25-day data limit';
+    });
+
+    tabs[0].click();
+    await tabsA11yAndKeys(ctx, 'Projects', 3);
+    await closeByButton(ctx);
+  }
+
+  /* ---- fit and size at this viewport ------------------------------------------- */
+
+  async function layoutTests(ctx) {
+    const at = '@' + ctx.label;
+    for (const name of ['About', 'Experience', 'Projects']) {
+      await open(ctx, name);
+      const n = name.toLowerCase();
+
+      await check(n + '_popup_card_fits_inside_the_window' + at, () => {
+        const r = q(ctx, '.popup-card').getBoundingClientRect();
+        return r.top >= -0.5 && r.left >= -0.5 && r.right <= ctx.W + 0.5 && r.bottom <= ctx.H + 0.5 ? null :
+          'card is at ' + JSON.stringify([r.left, r.top, r.right, r.bottom].map(Math.round)) + ' in a ' + ctx.label + ' window';
+      });
+
+      await check(n + '_popup_has_no_sideways_scroll' + at, () => {
+        const body = q(ctx, '.popup-body');
+        if (body.scrollWidth > body.clientWidth + 1) return 'pop-up body scrolls sideways';
+        return ctx.doc.documentElement.scrollWidth <= ctx.W + 1 ? null : 'page is wider than the window';
+      });
+
+      await check(n + '_popup_body_scrolls_when_content_is_taller' + at, () => {
+        const body = q(ctx, '.popup-body'), s = ctx.win.getComputedStyle(body);
+        return /auto|scroll/.test(s.overflowY) ? null : 'overflow-y is ' + s.overflowY;
+      });
+
+      await check(n + '_arrows_are_44px_targets_and_icon_only_on_phones' + at, () => {
+        const btns = [step(ctx, 'prev'), step(ctx, 'next')].filter(visible);
+        for (const b of btns) {
+          const r = b.getBoundingClientRect();
+          if (r.height < 43.5) return 'an arrow is only ' + r.height.toFixed(1) + 'px tall';
+          const nameW = b.querySelector('.popup-step-name').getBoundingClientRect().width;
+          if (ctx.W <= 440 && (nameW > 1.5 || r.width > 46)) return 'arrow is ' + r.width.toFixed(0) + 'px wide on a phone, name ' + nameW.toFixed(0) + 'px';
+          if (ctx.W >= 768 && nameW < 20) return 'arrow hides its Section name on a wide screen';
+        }
+      });
+
+      await check(n + '_close_button_is_a_44px_target' + at, () => {
+        const r = q(ctx, '.popup-close').getBoundingClientRect();
+        return r.width >= 43.5 && r.height >= 43.5 ? null : 'X button is ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1);
+      });
+
+      await closeByButton(ctx);
+    }
+  }
+
+  /* ---- deep links, no-JavaScript fallback, global guards ---------------------- */
+
+  async function deepLinkTests(w, h, hash, want) {
+    const ctx = await openFrame(w, h, { hash });
+    await check('link_to_' + hash.slice(1) + '_opens_that_popup@' + ctx.label, () => {
+      const d = dlg(ctx);
+      if (!d || !d.open) return 'no dialog open after loading ' + hash;
+      return heading(ctx) === want ? null : 'heading reads ' + JSON.stringify(heading(ctx));
+    });
+  }
+
+  async function noScriptTests(w, h) {
+    const ctx = await openFrame(w, h, { noscript: true });
+    const at = '@' + ctx.label + '_no_javascript';
+    await check('without_javascript_the_long_page_shows_every_section' + at, () => {
+      if (ctx.doc.documentElement.classList.contains('popups')) return 'pop-up mode is on without scripts';
+      if (dlg(ctx)) return 'a dialog exists without scripts';
+      for (const id of ['about', 'experience', 'work']) {
+        const s = ctx.doc.getElementById(id);
+        if (!s) return '#' + id + ' is missing';
+        if (ctx.win.getComputedStyle(s).display === 'none') return '#' + id + ' is hidden';
+      }
+    });
+    await check('without_javascript_the_hero_buttons_jump_to_real_sections' + at, () => {
+      const links = qa(ctx, '.hero-sections a');
+      if (links.length !== 3) return 'found ' + links.length + ' Hero buttons';
+      for (const a of links) if (!ctx.doc.querySelector(a.getAttribute('href'))) return a.getAttribute('href') + ' goes nowhere';
+    });
+    await check('without_javascript_the_contact_links_are_still_in_the_hero' + at, () =>
+      qa(ctx, '.hero-contact a').length === 3 ? null : 'Hero contact links are missing');
+  }
+
+  async function globalTests() {
+    const ctx = await openFrame(1280, 800);
+
+    await check('there_is_no_contact_section_or_contact_popup', () => {
+      if (ctx.doc.getElementById('contact')) return '#contact still exists';
+      return qa(ctx, '.hero-sections a').some(a => a.getAttribute('href') === '#contact') ? 'a Hero button points at #contact' : null;
+    });
+
+    await check('the_page_never_shows_a_phone_number_or_street_address', () => {
+      const html = ctx.doc.documentElement.innerHTML;
+      const text = ctx.doc.body.textContent;
+      if (/href="tel:/i.test(html)) return 'a tel: link is on the page';
+      if (/\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b/.test(text)) return 'a phone-number pattern is on the page';
+      if (/\b\d{1,5}\s+[A-Z][a-z]+\s+(Street|St\.|Avenue|Ave\.|Road|Rd\.|Drive|Dr\.|Lane|Ln\.|Boulevard|Blvd\.)/.test(text)) return 'a street-address pattern is on the page';
+    });
+
+    await check('the_stylesheet_has_a_reduced_motion_rule_that_stops_animations', () => {
+      for (const sheet of Array.from(ctx.doc.styleSheets)) {
+        let rules; try { rules = Array.from(sheet.cssRules); } catch (e) { continue; }
+        for (const r of rules) {
+          if (r.media && /prefers-reduced-motion:\s*reduce/.test(r.conditionText || r.media.mediaText) &&
+              /animation-duration/.test(r.cssText) && /transition-duration/.test(r.cssText)) return null;
+        }
+      }
+      return 'no prefers-reduced-motion: reduce rule that sets animation-duration and transition-duration';
+    });
+
+    await check('no_read_more_buttons_in_any_popup', async () => {
+      for (const name of ['About', 'Experience', 'Projects']) {
+        await open(ctx, name);
+        const bad = qa(ctx, 'dialog.popup button').find(b => /read more|show less|expand/i.test(b.textContent) || b.hasAttribute('aria-expanded'));
+        await closeByButton(ctx);
+        if (bad) return name + ' pop-up has a "' + norm(bad.textContent) + '" toggle';
+      }
+    });
+
+    await check('an_unknown_hash_like_contact_opens_no_popup', async () => {
+      const c = await openFrame(1280, 800, { hash: '#contact' });
+      return dlg(c) && dlg(c).open ? 'a dialog opened for #contact' : null;
+    });
+  }
+
+  try {
+    for (const [w, h] of [[320, 720], [375, 812], [768, 900], [1280, 800]]) {
+      const ctx = await openFrame(w, h);
+      await heroTests(ctx);
+      await dialogTests(ctx);
+      await stepTests(ctx);
+      await aboutTests(ctx);
+      await experienceTests(ctx);
+      await projectsTests(ctx);
+      await layoutTests(ctx);
+      await deepLinkTests(w, h, '#experience', '02 Experience');
+    }
+    await deepLinkTests(1280, 800, '#about', '01 About');
+    await deepLinkTests(1280, 800, '#work', '03 Projects');
+    await noScriptTests(1280, 800);
+    await noScriptTests(375, 812);
+    await globalTests();
+  } catch (e) {
+    fail('harness', 'error: ' + (e && e.stack || e));
+  }
+
+  stage.textContent = '';
+  record('SUMMARY passed=' + results.passed + ' failed=' + results.failed + ' skipped=' + results.skipped);
+  document.title = 'DONE';
+
+  if (/[?&]post=1\b/.test(location.search)) {
+    try {
+      await fetch('/__results', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(results) });
+    } catch (e) { /* the page still shows the results */ }
+  }
+})();
+</script>
+</body>
+</html>

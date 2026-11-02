@@ -7,35 +7,49 @@ Kobe Richards' personal portfolio site: one long page that introduces him, his e
 ### Page structure
 
 **Section**:
-One of the page's top-level blocks, read in order: the Hero, About, Experience, Projects, and the Footer.
+One of the page's top-level blocks, read in order: the Hero, About, Experience, and Projects. (On `sandbox/section-popups` there is no Contact section; the contact links sit in the Hero.)
 _Avoid_: Panel, block, slide, page
 
 **Hero**:
-The opening Section with Kobe's name, his one-line intro, and the two calls to action. It is already on screen when the page loads.
+The opening Section with Kobe's name, his one-line intro, the chips, the Section buttons and his contact links. It is already on screen when the page loads, and once the Section pop-ups are built it is the whole page.
 _Avoid_: Header, banner, splash
 
 **Projects section**:
-The Section listing Kobe's project cards.
+The Section listing Kobe's projects, one Panel per project.
 _Avoid_: Work, Selected work
 
-**Footer**:
-The closing Section with what roles he is open to and his contact links.
-_Avoid_: Contact section
+**Panel**:
+A self-contained container holding one piece of a Section's content, such as the bio, the facts, one role, or one project. Every piece of content in About, Experience and Projects lives in a Panel. The Hero has no Panels: its content sits directly over the Constellation.
+_Avoid_: Card, box, tile, storage space
+
+**Toolkit**:
+The Panel in About that groups the tools Kobe already names in his bio by category.
+_Avoid_: Skills list, tech stack
+
+**Timeline**:
+The vertical line in Experience that the role Panels hang off, in date order.
+_Avoid_: Roles list
+
+**Section button**:
+One of the Hero's About, Experience and Projects buttons. Each opens its Section pop-up; without JavaScript it jumps to the Section on the long page instead. (Sandbox experiment, `sandbox/section-popups` only.)
+_Avoid_: Quick look, Hero nav, shortcuts
+
+**Section pop-up**:
+A dialog over the dimmed Hero showing one Section's content in full, with no "Read more". About is a single page; Experience and Projects have one tab per role or project. Previous and Next arrows step through the Sections in order without wrapping (About has no Previous, Projects no Next), and a link to `#about`, `#experience` or `#work` opens that pop-up on arrival. Built from the Section's own content, so nothing is written twice. (Sandbox experiment.)
+_Avoid_: Modal, lightbox, overlay
+
+### Background
+
+**Constellation**:
+The animated field of drifting nodes that connect to their neighbours, sitting behind every Section and staying in place while the page scrolls.
+_Avoid_: Particles, network background, canvas
 
 ### Motion
 
-**Section Transition**:
-The motion a Section goes through as it scrolls onto or off the screen, following the visitor's scroll position exactly, so scrolling back plays it in reverse.
-_Avoid_: Scroll animation, reveal, entrance effect
+**Reveal**:
+A Panel or a Section heading fading in and rising into place as it scrolls into view, following the visitor's scroll position, so scrolling back up plays it in reverse.
+_Avoid_: Entry, entrance, scroll animation, Section Transition
 
-**Entry**:
-The part of a Section Transition as the Section scrolls onto the screen. Every Section except the Hero has one.
-_Avoid_: Enter, reveal, intro
-
-**Exit**:
-The part of a Section Transition as the Section scrolls off the top of the screen. Every Section except the Footer has one.
-_Avoid_: Leave, outro, dismiss
-
-**Settled**:
-A Section that is flat, full size, and fully visible: its state whenever any part of it can be read. A Section is only mid-Entry or mid-Exit while it is mostly off screen.
-_Avoid_: At rest, idle, in view
+**Active Section**:
+The Section the visitor is currently reading, highlighted in the navigation.
+_Avoid_: Current page, selected tab
